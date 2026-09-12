@@ -1,0 +1,1391 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- 主仪表盘容器 (支持 GPU 微位移防烧屏) -->
+    <LinearLayout
+        android:id="@+id/dashboard_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <!-- 顶部状态栏 (Top Bar) -->
+        <LinearLayout
+            android:id="@+id/top_bar"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_card"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:layout_marginBottom="6dp">
+
+            <!-- 左侧：主机名、LIVE 绿灯与运行时间 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tv_device_tag"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="MACBOOK"
+                    android:textColor="#d0dbe5"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="#161e2e"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp" />
+
+                <TextView
+                    android:id="@+id/tv_live_dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="● LIVE"
+                    android:textColor="#00f59b"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="8dp" />
+
+                <!-- 链路指示胶囊 (⚡ USB / 📶 WIFI) -->
+                <TextView
+                    android:id="@+id/tv_link_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚡ USB"
+                    android:textColor="#00f59b"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:background="#0a2a1c"
+                    android:paddingStart="5dp"
+                    android:paddingEnd="5dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:layout_marginStart="6dp" />
+
+                <TextView
+                    android:id="@+id/tv_uptime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--:--"
+                    android:textColor="#506070"
+                    android:textSize="10sp"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+
+            <!-- 中央：时钟与同步日期 -->
+            <LinearLayout
+                android:id="@+id/card_clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/tv_clock"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="16:30:00"
+                    android:textColor="#e6edf3"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed" />
+
+                <TextView
+                    android:id="@+id/tv_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2026年9月12日 周六"
+                    android:textColor="#8fa0b0"
+                    android:textSize="9sp" />
+            </LinearLayout>
+
+            <!-- 右侧：Mac 功率胶囊、Mac 电池、麦克风、Note 3 副屏电量 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical|end"
+                android:orientation="horizontal">
+
+                <!-- 💻 Mac 主机电量胶囊 -->
+                <TextView
+                    android:id="@+id/tv_mac_batt_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="MAC --%"
+                    android:textColor="#00d2ff"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:background="#0a1e2a"
+                    android:paddingStart="5dp"
+                    android:paddingEnd="5dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:layout_marginEnd="4dp" />
+
+                <!-- 麦克风胶囊按钮 (带声波与呼吸动效) -->
+                <LinearLayout
+                    android:id="@+id/btn_mic"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_mic_capsule_idle"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:layout_marginEnd="4dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:id="@+id/tv_mic_dot"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎙️"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/tv_mic_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="MIC OFF"
+                        android:textColor="#506070"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="2dp" />
+
+                    <!-- 实时音量跳动声波动效 -->
+                    <com.antigravity.machud.MicWaveView
+                        android:id="@+id/mic_wave_view"
+                        android:layout_width="14dp"
+                        android:layout_height="9dp"
+                        android:layout_marginStart="3dp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <!-- Note 3 手机自身电量 (副屏状态) -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#161e2e"
+                    android:paddingStart="5dp"
+                    android:paddingEnd="5dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📱"
+                        android:textSize="8sp" />
+
+                    <TextView
+                        android:id="@+id/tv_battery_pct"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--%"
+                        android:textColor="#8fa0b0"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="2dp" />
+
+                    <TextView
+                        android:id="@+id/tv_guard_tag"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="(旁路)"
+                        android:textColor="#506070"
+                        android:textSize="7sp"
+                        android:layout_marginStart="2dp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- 主体 4 列卡片网格 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <!-- 卡片 1: CPU 算力引擎与桌面气象微站 (CPU & AMBIENT STATION) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="7dp"
+                android:layout_marginEnd="6dp">
+
+                <!-- 标题栏 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="CPU 算力引擎"
+                        android:textColor="#8fa0b0"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_cpu_stat_tag"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="NORMAL"
+                        android:textColor="#00f59b"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:background="#0a2a1c"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:paddingTop="1dp"
+                        android:paddingBottom="1dp" />
+                </LinearLayout>
+
+                <!-- CPU 整体负载总览 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="5dp"
+                    android:layout_marginTop="3dp"
+                    android:layout_marginBottom="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="bottom">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="8核整机总负荷"
+                            android:textColor="#506070"
+                            android:textSize="8sp" />
+                        <TextView
+                            android:id="@+id/tv_cpu_big_pct"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="4%"
+                            android:textColor="#00f59b"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed" />
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pb_cpu_total"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="3.5dp"
+                        android:layout_marginTop="2dp"
+                        android:max="100"
+                        android:progress="4"
+                        android:progressDrawable="@drawable/custom_progressbar_green" />
+                </LinearLayout>
+
+                <!-- 8 核心实时频谱与峰值 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="8核动态频谱"
+                        android:textColor="#8fa0b0"
+                        android:textSize="7.5sp" />
+                    <TextView
+                        android:id="@+id/tv_cpu_peak_core"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="C1 峰值 11%"
+                        android:textColor="#00f59b"
+                        android:textSize="7.5sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- 8核动态均衡器柱状图 (适度高度) -->
+                <com.antigravity.machud.CpuSpectrumView
+                    android:id="@+id/cpu_spectrum_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="1dp"
+                    android:layout_marginBottom="2dp" />
+
+                <!-- 60s CPU 历史趋势微图 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="4dp"
+                    android:layout_marginBottom="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="60S 负荷脉冲趋势"
+                            android:textColor="#506070"
+                            android:textSize="7sp" />
+                        <TextView
+                            android:id="@+id/tv_cpu_trend_label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="LIVE PULSE"
+                            android:textColor="#00f59b"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <com.antigravity.machud.CpuWaveView
+                        android:id="@+id/cpu_wave_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_marginTop="1dp" />
+                </LinearLayout>
+
+                <!-- 🌟 Note 3 物理传感器微气象站 (BOSCH 气压计 + SHTC1 温湿度) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#0d141e"
+                    android:padding="5dp"
+                    android:layout_marginBottom="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="AMBIENT 气象微站"
+                            android:textColor="#00d2ff"
+                            android:textSize="7.5sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tv_ambient_comfort"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="COMFORTABLE"
+                            android:textColor="#00f59b"
+                            android:textSize="7sp"
+                            android:textStyle="bold"
+                            android:background="#0a2a1c"
+                            android:paddingStart="3dp"
+                            android:paddingEnd="3dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="3dp">
+                        <!-- 室内温度 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="室温 / 芯片"
+                                android:textColor="#506070"
+                                android:textSize="7sp" />
+                            <TextView
+                                android:id="@+id/tv_sensor_temp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="26.5°C"
+                                android:textColor="#e6edf3"
+                                android:textSize="9.5sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- 相对湿度 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="相对湿度"
+                                android:textColor="#506070"
+                                android:textSize="7sp" />
+                            <TextView
+                                android:id="@+id/tv_sensor_humidity"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="58% RH"
+                                android:textColor="#00d2ff"
+                                android:textSize="9.5sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- 博世气压计 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1.4"
+                            android:orientation="vertical"
+                            android:gravity="end">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="BOSCH 气压"
+                                android:textColor="#506070"
+                                android:textSize="7sp" />
+                            <TextView
+                                android:id="@+id/tv_sensor_pressure"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="1015.5 hPa"
+                                android:textColor="#ffd166"
+                                android:textSize="9sp"
+                                android:singleLine="true"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 底部硬件与内核工控微面板 (CPU型号 / UNIX负载) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="4dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tv_cpu_brand"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="i5-8259U @ 2.30GHz"
+                            android:textColor="#8fa0b0"
+                            android:textSize="7.5sp"
+                            android:singleLine="true"
+                            android:ellipsize="end" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="4C / 8T"
+                            android:textColor="#506070"
+                            android:textSize="7sp"
+                            android:textStyle="bold"
+                            android:background="#161e2e"
+                            android:paddingStart="3dp"
+                            android:paddingEnd="3dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="2dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="LOAD"
+                            android:textColor="#506070"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tv_load_avg"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="1.75 · 1.85 · 1.95"
+                            android:textColor="#00f59b"
+                            android:textSize="7.5sp"
+                            android:layout_marginStart="3dp" />
+                        <TextView
+                            android:id="@+id/tv_proc_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="759 TASKS"
+                            android:textColor="#00d2ff"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 卡片 2: 内存深度架构分解与 NVMe 存储 (MEMORY & STORAGE) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.1"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="7dp"
+                android:layout_marginEnd="6dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="内存架构与存储"
+                        android:textColor="#8fa0b0"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_mem_pill"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="16 GB RAM"
+                        android:textColor="#506070"
+                        android:textSize="9sp" />
+                </LinearLayout>
+
+                <!-- 模块 1: 物理内存状态与多段压力条 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="5dp"
+                    android:layout_marginTop="3dp"
+                    android:layout_marginBottom="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="bottom">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="物理内存占用"
+                            android:textColor="#506070"
+                            android:textSize="8sp" />
+                        <TextView
+                            android:id="@+id/tv_mem_big_pct"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="49%"
+                            android:textColor="#00d2ff"
+                            android:textSize="17sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed" />
+                    </LinearLayout>
+
+                    <!-- 多段着色进度条 (App 蓝 + Wired 绿 + Compressed 橙) -->
+                    <com.antigravity.machud.MultiSegmentBarView
+                        android:id="@+id/multi_mem_bar"
+                        android:layout_width="match_parent"
+                        android:layout_height="4.5dp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="3dp" />
+
+                    <!-- 总计分配与可用 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/tv_mem_detail"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="7.8 / 16.0 GB"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp" />
+                        <TextView
+                            android:id="@+id/tv_mem_free"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="可用 8.2 GB"
+                            android:textColor="#506070"
+                            android:textSize="8sp" />
+                    </LinearLayout>
+
+                    <!-- macOS 架构内存细分 (APP / WIRED / COMP) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="4dp"
+                        android:paddingTop="3dp"
+                        android:paddingBottom="2dp"
+                        android:background="#101722">
+                        <TextView
+                            android:id="@+id/tv_mem_app"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="APP 6.3G"
+                            android:textColor="#00d2ff"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tv_mem_wired"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="核心 2.8G"
+                            android:textColor="#00f59b"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tv_mem_comp"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="压缩 3.3G"
+                            android:textColor="#ffd166"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 模块 2: macOS Swap 虚拟内存交换区 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="5dp"
+                    android:layout_marginBottom="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="SWAP 虚拟交换区"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp" />
+                        <TextView
+                            android:id="@+id/tv_swap_val"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="386 / 1024 MB"
+                            android:textColor="#ffd166"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pb_swap"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="3.5dp"
+                        android:layout_marginTop="3dp"
+                        android:max="100"
+                        android:progress="37"
+                        android:progressDrawable="@drawable/custom_progressbar" />
+                </LinearLayout>
+
+                <!-- 模块 3: 系统磁盘 NVMe 存储分区与健康度 (充满下半区) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="5dp"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="系统磁盘 NVMe"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8.5sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tv_disk_pct"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="38%"
+                            android:textColor="#e6edf3"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/pb_disk"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="4.5dp"
+                        android:layout_marginTop="3dp"
+                        android:layout_marginBottom="3dp"
+                        android:max="100"
+                        android:progress="38"
+                        android:progressDrawable="@drawable/custom_progressbar" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:id="@+id/tv_disk_used"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="已用 89 GB"
+                            android:textColor="#8fa0b0"
+                            android:textSize="7.5sp" />
+                        <TextView
+                            android:id="@+id/tv_disk_total"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="总量 233 GB"
+                            android:textColor="#506070"
+                            android:textSize="7.5sp" />
+                    </LinearLayout>
+
+                    <!-- 磁盘状态微标签 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="4dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="HEALTH: 100% (APFS)"
+                            android:textColor="#00f59b"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+                        <TextView
+                            android:id="@+id/tv_disk_avail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="剩余 144 GB"
+                            android:textColor="#506070"
+                            android:textSize="7sp" />
+                    </LinearLayout>
+
+                    <!-- 存储架构状态微标签 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="3dp">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="APFS 卷 · TRIM 就绪"
+                            android:textColor="#506070"
+                            android:textSize="6.5sp" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="SMART 良好 ●"
+                            android:textColor="#00f59b"
+                            android:textSize="6.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 卡片 3: 网络通信雷达 (TRAFFIC) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.15"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="8dp"
+                android:layout_marginEnd="6dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="网络通信雷达"
+                        android:textColor="#8fa0b0"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="TRAFFIC"
+                        android:textColor="#506070"
+                        android:textSize="9sp" />
+                </LinearLayout>
+
+                <!-- 上下行速率微卡片 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="#0a0e13"
+                        android:padding="5dp"
+                        android:layout_marginEnd="4dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="↓ 下行带宽"
+                            android:textColor="#506070"
+                            android:textSize="9sp" />
+                        <TextView
+                            android:id="@+id/tv_net_down"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="13.3 KB/s"
+                            android:textColor="#00f59b"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:singleLine="true" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="#0a0e13"
+                        android:padding="5dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="↑ 上行带宽"
+                            android:textColor="#506070"
+                            android:textSize="9sp" />
+                        <TextView
+                            android:id="@+id/tv_net_up"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="4.0 KB/s"
+                            android:textColor="#00d2ff"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:singleLine="true" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 网络链路硬件状态与会话吞吐工控条 (消除雷达中间死黑空洞) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#0a0e13"
+                    android:padding="5dp"
+                    android:layout_marginBottom="4dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tv_net_lan_ip"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="IP 192.168.3.179"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp"
+                            android:singleLine="true" />
+
+                        <TextView
+                            android:id="@+id/tv_net_ping"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="PING 9ms ●"
+                            android:textColor="#00f59b"
+                            android:textSize="8sp"
+                            android:textStyle="bold"
+                            android:background="#0a2a1c"
+                            android:paddingStart="4dp"
+                            android:paddingEnd="4dp"
+                            android:paddingTop="1dp"
+                            android:paddingBottom="1dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="3dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="∑ 吞吐"
+                            android:textColor="#506070"
+                            android:textSize="7sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_net_total"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="↓ 4.3 GB · ↑ 4.0 GB"
+                            android:textColor="#00d2ff"
+                            android:textSize="8sp"
+                            android:layout_marginStart="4dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 60s 动态实时波形画布 -->
+                <com.antigravity.machud.NetworkWaveView
+                    android:id="@+id/wave_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <!-- 波形底部标注 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="2dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="60S 动态流速"
+                        android:textColor="#506070"
+                        android:textSize="8sp" />
+                    <TextView
+                        android:id="@+id/tv_peak_rate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="PEAK REALTIME"
+                        android:textColor="#506070"
+                        android:textSize="8sp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 卡片 4: 电源功耗与活跃进程 (POWER & PROCESSES) -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.3"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="8dp">
+
+                <!-- 模块 1: Mac 实时电源与整机功耗 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="电源与实时能耗"
+                        android:textColor="#8fa0b0"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/tv_power_level_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="BALANCED"
+                        android:textColor="#00d2ff"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:background="#0a1e2a"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:paddingTop="1dp"
+                        android:paddingBottom="1dp" />
+                </LinearLayout>
+
+                <!-- 大字功耗数值条目 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="#0a0e13"
+                    android:padding="6dp"
+                    android:layout_marginTop="3dp"
+                    android:layout_marginBottom="4dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="整机实时功耗"
+                            android:textColor="#506070"
+                            android:textSize="8sp" />
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="bottom">
+
+                            <TextView
+                                android:id="@+id/tv_power_watts"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17.2"
+                                android:textColor="#00f59b"
+                                android:textSize="19sp"
+                                android:textStyle="bold"
+                                android:fontFamily="sans-serif-condensed" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=" W"
+                                android:textColor="#00f59b"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:layout_marginStart="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 右侧电源规格 (PD 65W / 电压电流) -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="end">
+
+                        <TextView
+                            android:id="@+id/tv_adapter_spec"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="PD 65W 快充"
+                            android:textColor="#00d2ff"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_power_vi"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="20.2V · 0.85A"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp"
+                            android:layout_marginTop="2dp" />
+
+                        <TextView
+                            android:id="@+id/tv_mac_battery_state"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="MAC 80% 旁路"
+                            android:textColor="#00f59b"
+                            android:textSize="8sp"
+                            android:layout_marginTop="1dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 模块 2: 活跃进程监控 (TOP CPU & RAM) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="3dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="活跃高载进程"
+                        android:textColor="#8fa0b0"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CPU / RAM"
+                        android:textColor="#506070"
+                        android:textSize="8sp" />
+                </LinearLayout>
+
+                <!-- 3 个进程条目 (带 CPU% 和 内存 MB/GB) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical">
+
+                    <!-- P1 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:background="#0a0e13"
+                        android:padding="5dp"
+                        android:layout_marginBottom="3dp">
+                        <TextView
+                            android:id="@+id/tv_p1_name"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="coreaudiod"
+                            android:textColor="#d0dbe5"
+                            android:textSize="10sp"
+                            android:singleLine="true"
+                            android:ellipsize="end" />
+                        <TextView
+                            android:id="@+id/tv_p1_mem"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="42 MB"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp"
+                            android:layout_marginEnd="6dp" />
+                        <TextView
+                            android:id="@+id/tv_p1_cpu"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="11.8%"
+                            android:textColor="#00f59b"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- P2 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:background="#0a0e13"
+                        android:padding="5dp"
+                        android:layout_marginBottom="3dp">
+                        <TextView
+                            android:id="@+id/tv_p2_name"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Antigravity"
+                            android:textColor="#d0dbe5"
+                            android:textSize="10sp"
+                            android:singleLine="true"
+                            android:ellipsize="end" />
+                        <TextView
+                            android:id="@+id/tv_p2_mem"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="258 MB"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp"
+                            android:layout_marginEnd="6dp" />
+                        <TextView
+                            android:id="@+id/tv_p2_cpu"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="4.8%"
+                            android:textColor="#00d2ff"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <!-- P3 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:background="#0a0e13"
+                        android:padding="5dp">
+                        <TextView
+                            android:id="@+id/tv_p3_name"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="VirtualMachine"
+                            android:textColor="#d0dbe5"
+                            android:textSize="10sp"
+                            android:singleLine="true"
+                            android:ellipsize="end" />
+                        <TextView
+                            android:id="@+id/tv_p3_mem"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="2.1 GB"
+                            android:textColor="#8fa0b0"
+                            android:textSize="8sp"
+                            android:layout_marginEnd="6dp" />
+                        <TextView
+                            android:id="@+id/tv_p3_cpu"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="3.0%"
+                            android:textColor="#00d2ff"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- 底部小字 -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="NOTE 3 HUD · 60FPS SYNC"
+                    android:textColor="#323d47"
+                    android:textSize="8sp"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- 纯黑极简 AOD 漂移时钟视图 (98% AMOLED 像素断电关闭，杜绝烧屏与发热) -->
+    <FrameLayout
+        android:id="@+id/screensaver_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#000000"
+        android:visibility="gone">
+
+        <!-- 浮动漂移时钟容器 (通过 translationX/Y 在纯黑屏幕大范围漫游) -->
+        <LinearLayout
+            android:id="@+id/aod_clock_box"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_screensaver_clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="16:30"
+                android:textColor="#25476a"
+                android:textSize="78sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-thin" />
+
+            <TextView
+                android:id="@+id/tv_screensaver_stats"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MAC 80% · 22.4°C · 0.0W"
+                android:textColor="#14283d"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AMOLED AOD 护屏中 • 点击唤醒"
+                android:textColor="#0d1b2a"
+                android:textSize="10sp"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- 顶部微型护屏状态角标 -->
+        <TextView
+            android:id="@+id/tv_aod_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|center_horizontal"
+            android:layout_marginTop="8dp"
+            android:text="● OLED CARE ACTIVE"
+            android:textColor="#0c2317"
+            android:textSize="8sp" />
+    </FrameLayout>
+
+    <!-- OLED 像素抗衰洗屏模式 (Pixel Refresh) -->
+    <com.antigravity.machud.PixelRefreshView
+        android:id="@+id/pixel_refresh_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+</FrameLayout>

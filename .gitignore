@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# Android build artifacts
+build_out/
+android-sdk/
+cmdline-tools.zip
+*.apk.idsig
+android/build_out/
+debug.keystore
+android/debug.keystore
+
+# Compiled Binaries & Logs
+stats_server
+audio_bridge
+test_blackhole
+mac/stats_server
+mac/audio_bridge
+*.log
+*.wav
+
+# Temporary root test images (official showcase preserved in docs/images)
+/app_hud*.png
+/hud*.png
+/final*.png
+/current_screen.png
+/dashboard_screen.png
+/full_screen.png
+/home_screen.png
+/wp.png
+/test_*.wav
+/test_*.png

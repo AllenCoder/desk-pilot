@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_black">#000000</color>
+    <color name="card_bg">#0a0e14</color>
+    <color name="card_border">#1a2332</color>
+    <color name="text_primary">#ffffff</color>
+    <color name="text_secondary">#8b949e</color>
+    <color name="accent_cyan">#00e5ff</color>
+    <color name="accent_green">#00e676</color>
+    <color name="accent_amber">#ffab00</color>
+    <color name="accent_red">#ff1744</color>
+    <color name="mic_bg_idle">#111822</color>
+    <color name="mic_bg_active">#003322</color>
+    <color name="mic_active_border">#00e676</color>
+</resources>

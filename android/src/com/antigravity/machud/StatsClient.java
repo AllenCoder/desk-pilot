@@ -1,0 +1,385 @@
+package com.antigravity.machud;
+
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+
+public class StatsClient {
+    private static final String TAG = "StatsClient";
+
+    public enum LinkType {
+        USB,
+        WIFI,
+        DISCONNECTED
+    }
+
+    public interface Listener {
+        void onStatsReceived(MacStats stats, LinkType linkType, String host);
+        void onConnectionFailed(String error);
+        void onMicStateChanged(boolean active);
+    }
+
+    public static class ProcessInfo {
+        public String name;
+        public double cpu;
+        public String mem;
+
+        public ProcessInfo(String name, double cpu, String mem) {
+            this.name = name;
+            this.cpu = cpu;
+            this.mem = mem;
+        }
+    }
+
+    public static class PowerInfo {
+        public double watts = 0.0;
+        public String wattsStr = "-- W";
+        public String level = "NORMAL";
+        public boolean isAC = true;
+        public int adapterWatts = 65;
+        public String adapterName = "PD 65W";
+        public double voltage = 0.0;
+        public double amperage = 0.0;
+    }
+
+    public static class MacStats {
+        public double cpuPercent;
+        public double[] cpuCores = new double[8];
+        public double memUsedGb;
+        public double memTotalGb;
+        public double memPercent;
+        public double memAppGb = 0.0;
+        public double memWiredGb = 0.0;
+        public double memCompGb = 0.0;
+        public double swapUsedMb = 0.0;
+        public double swapTotalMb = 0.0;
+        public double diskUsedGb;
+        public double diskTotalGb;
+        public double diskPercent;
+        public float netDownBytes = 0f;
+        public float netUpBytes = 0f;
+        public String netRx = "0 B/s";
+        public String netTx = "0 B/s";
+        public int macBatteryPercent = 0;
+        public boolean macCharging = false;
+        public String macBatteryTimeLeft = "";
+        public PowerInfo power = new PowerInfo();
+        public boolean micDemand = false;
+        public String uptime = "--";
+        public String macTime = "";
+        public String macDate = "";
+        public String cpuBrand = "i5 @ 2.30GHz";
+        public String loadAvg = "0.00 · 0.00 · 0.00";
+        public int procCount = 0;
+        public String lanIP = "127.0.0.1";
+        public String pingMs = "-- ms";
+        public String totalIn = "0 B";
+        public String totalOut = "0 B";
+        public List<ProcessInfo> processes = new ArrayList<>();
+    }
+
+    private final Listener listener;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private volatile boolean isRunning = false;
+    private Thread pollerThread;
+    private Thread beaconReceiverThread;
+
+    private volatile String primaryHost = "127.0.0.1";
+    private volatile String fallbackHost = "192.168.3.179";
+    private volatile int statsPort = 9527;
+    private volatile int audioPort = 9528;
+    private volatile LinkType currentLink = LinkType.USB;
+
+    public StatsClient(String fallbackIp, Listener listener) {
+        if (fallbackIp != null && !fallbackIp.isEmpty()) {
+            this.fallbackHost = fallbackIp;
+        }
+        this.listener = listener;
+    }
+
+    public String getCurrentActiveHost() {
+        return (currentLink == LinkType.USB) ? primaryHost : fallbackHost;
+    }
+
+    public LinkType getCurrentLink() {
+        return currentLink;
+    }
+
+    public synchronized void start() {
+        if (isRunning) return;
+        isRunning = true;
+
+        startBeaconReceiver();
+        startPoller();
+    }
+
+    private void startBeaconReceiver() {
+        beaconReceiverThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                DatagramSocket socket = null;
+                try {
+                    socket = new DatagramSocket(9529);
+                    socket.setBroadcast(true);
+                    byte[] buf = new byte[1024];
+
+                    while (isRunning) {
+                        DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                        socket.receive(packet);
+                        String msg = new String(packet.getData(), 0, packet.getLength());
+                        try {
+                            JSONObject json = new JSONObject(msg);
+
+                            // 1. 处理 Mac 端的麦克风事件广播 (毫秒级即时触发)
+                            if ("mic_state".equals(json.optString("event"))) {
+                                final boolean active = json.optBoolean("active", false);
+                                mainHandler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        if (listener != null) {
+                                            listener.onMicStateChanged(active);
+                                        }
+                                    }
+                                });
+                            }
+
+                            // 2. 处理服务发现广播
+                            if ("machud".equals(json.optString("service"))) {
+                                String ip = json.optString("ip", "");
+                                if (!ip.isEmpty() && !"localhost".equals(ip) && !"127.0.0.1".equals(ip)) {
+                                    fallbackHost = ip;
+                                    statsPort = json.optInt("statsPort", 9527);
+                                    audioPort = json.optInt("audioPort", 9528);
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Beacon receiver stopped: " + e.getMessage());
+                } finally {
+                    if (socket != null && !socket.isClosed()) {
+                        socket.close();
+                    }
+                }
+            }
+        }, "StatsBeacon-Thread");
+        beaconReceiverThread.start();
+    }
+
+    private void startPoller() {
+        pollerThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                int consecutiveUsbFails = 0;
+
+                while (isRunning) {
+                    MacStats stats = null;
+                    LinkType activeLink = LinkType.DISCONNECTED;
+                    String activeHost = primaryHost;
+
+                    // 1. 尝试 USB 直连 (127.0.0.1)
+                    if (consecutiveUsbFails < 2) {
+                        try {
+                            stats = fetchFromHost(primaryHost, statsPort, 1000);
+                            activeLink = LinkType.USB;
+                            activeHost = primaryHost;
+                            consecutiveUsbFails = 0;
+                        } catch (Exception e) {
+                            consecutiveUsbFails++;
+                        }
+                    }
+
+                    // 2. 若 USB 失败或连续失败，尝试局域网 Wi-Fi IP
+                    if (stats == null && fallbackHost != null && !fallbackHost.isEmpty()) {
+                        try {
+                            stats = fetchFromHost(fallbackHost, statsPort, 1200);
+                            activeLink = LinkType.WIFI;
+                            activeHost = fallbackHost;
+                        } catch (Exception ignored) {}
+                    }
+
+                    // 3. 如果通过 Wi-Fi 成功，但累计 USB 失败，则每 5 次轮询静默探活一次 USB 是否恢复
+                    if (stats != null && activeLink == LinkType.WIFI) {
+                        consecutiveUsbFails++;
+                        if (consecutiveUsbFails >= 5) {
+                            consecutiveUsbFails = 0;
+                        }
+                    }
+
+                    currentLink = activeLink;
+
+                    if (stats != null) {
+                        final MacStats finalStats = stats;
+                        final LinkType finalLink = activeLink;
+                        final String finalHost = activeHost;
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (listener != null) {
+                                    listener.onStatsReceived(finalStats, finalLink, finalHost);
+                                    // 兜底同步麦克风状态
+                                    listener.onMicStateChanged(finalStats.micDemand);
+                                }
+                            }
+                        });
+                    } else {
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (listener != null) {
+                                    listener.onConnectionFailed("Dual-link timeout");
+                                }
+                            }
+                        });
+                    }
+
+                    try {
+                        long sleepMs = (stats != null) ? 1000 : 2000;
+                        Thread.sleep(sleepMs);
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                }
+            }
+        }, "StatsPoller-Thread");
+        pollerThread.start();
+    }
+
+    private MacStats fetchFromHost(String host, int port, int timeoutMs) throws Exception {
+        URL url = new URL("http://" + host + ":" + port + "/api/stats");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(timeoutMs);
+        conn.setReadTimeout(timeoutMs);
+
+        int code = conn.getResponseCode();
+        if (code != 200) {
+            conn.disconnect();
+            throw new Exception("HTTP " + code);
+        }
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line);
+        }
+        reader.close();
+        conn.disconnect();
+
+        JSONObject json = new JSONObject(sb.toString());
+        MacStats stats = new MacStats();
+
+        stats.macTime = json.optString("time", "");
+        stats.macDate = json.optString("date", "");
+        stats.uptime = json.optString("uptime", "--");
+
+        JSONObject cpuObj = json.optJSONObject("cpu");
+        if (cpuObj != null) {
+            stats.cpuPercent = cpuObj.optDouble("total", 0.0);
+            stats.cpuBrand = cpuObj.optString("brand", "i5 @ 2.30GHz");
+            stats.loadAvg = cpuObj.optString("loadAvg", "0.00 · 0.00 · 0.00");
+            stats.procCount = cpuObj.optInt("procs", 0);
+            JSONArray coresArr = cpuObj.optJSONArray("cores");
+            if (coresArr != null) {
+                for (int i = 0; i < Math.min(8, coresArr.length()); i++) {
+                    stats.cpuCores[i] = coresArr.optDouble(i, 0.0);
+                }
+            }
+        }
+
+        JSONObject memObj = json.optJSONObject("memory");
+        if (memObj != null) {
+            stats.memUsedGb = memObj.optDouble("used", 0.0);
+            stats.memTotalGb = memObj.optDouble("total", 16.0);
+            stats.memPercent = memObj.optDouble("percent", 0.0);
+            stats.memAppGb = memObj.optDouble("app", 0.0);
+            stats.memWiredGb = memObj.optDouble("wired", 0.0);
+            stats.memCompGb = memObj.optDouble("compressed", 0.0);
+            stats.swapUsedMb = memObj.optDouble("swapUsed", 0.0);
+            stats.swapTotalMb = memObj.optDouble("swapTotal", 1024.0);
+        }
+
+        JSONObject diskObj = json.optJSONObject("disk");
+        if (diskObj != null) {
+            stats.diskUsedGb = diskObj.optDouble("used", 0.0);
+            stats.diskTotalGb = diskObj.optDouble("total", 250.0);
+            stats.diskPercent = diskObj.optDouble("percent", 0.0);
+        }
+
+        JSONObject netObj = json.optJSONObject("network");
+        if (netObj != null) {
+            stats.netRx = netObj.optString("downStr", "0 B/s");
+            stats.netTx = netObj.optString("upStr", "0 B/s");
+            stats.netDownBytes = (float) netObj.optDouble("down", 0.0);
+            stats.netUpBytes = (float) netObj.optDouble("up", 0.0);
+            stats.lanIP = netObj.optString("lanIP", "127.0.0.1");
+            stats.pingMs = netObj.optString("pingMs", "-- ms");
+            stats.totalIn = netObj.optString("totalIn", "0 B");
+            stats.totalOut = netObj.optString("totalOut", "0 B");
+        }
+
+        JSONObject battObj = json.optJSONObject("battery");
+        if (battObj != null) {
+            stats.macBatteryPercent = battObj.optInt("percent", 0);
+            stats.macCharging = battObj.optBoolean("charging", false);
+            stats.macBatteryTimeLeft = battObj.optString("timeLeft", "");
+        }
+
+        JSONObject pwrObj = json.optJSONObject("power");
+        if (pwrObj != null) {
+            stats.power.watts = pwrObj.optDouble("watts", 0.0);
+            stats.power.wattsStr = pwrObj.optString("wattsStr", "-- W");
+            stats.power.level = pwrObj.optString("level", "NORMAL");
+            stats.power.isAC = pwrObj.optBoolean("isAC", true);
+            stats.power.adapterWatts = pwrObj.optInt("adapterWatts", 65);
+            stats.power.adapterName = pwrObj.optString("adapterName", "PD 65W");
+            stats.power.voltage = pwrObj.optDouble("voltage", 0.0);
+            stats.power.amperage = pwrObj.optDouble("amperage", 0.0);
+        }
+
+        JSONObject micObj = json.optJSONObject("mic");
+        if (micObj != null) {
+            stats.micDemand = micObj.optBoolean("active", false);
+        }
+
+        JSONArray procArr = json.optJSONArray("processes");
+        if (procArr != null) {
+            for (int i = 0; i < Math.min(4, procArr.length()); i++) {
+                JSONObject p = procArr.optJSONObject(i);
+                if (p != null) {
+                    stats.processes.add(new ProcessInfo(
+                            p.optString("name", "Unknown"),
+                            p.optDouble("cpu", 0.0),
+                            p.optString("mem", "")
+                    ));
+                }
+            }
+        }
+        return stats;
+    }
+
+    public synchronized void stop() {
+        isRunning = false;
+        if (pollerThread != null) {
+            pollerThread.interrupt();
+            pollerThread = null;
+        }
+        if (beaconReceiverThread != null) {
+            beaconReceiverThread.interrupt();
+            beaconReceiverThread = null;
+        }
+    }
+}
