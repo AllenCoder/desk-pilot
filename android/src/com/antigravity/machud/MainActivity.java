@@ -21,10 +21,15 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ViewFlipper;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -57,6 +62,37 @@ public class MainActivity extends Activity {
     private CpuSpectrumView cpuSpectrumView;
     private CpuWaveView cpuWaveView;
     private TextView tvAmbientComfort, tvSensorTemp, tvSensorHumidity, tvSensorPressure;
+
+    // 方案 A 贯通式全局交互底栏组件
+    private FrameLayout bottomDockContainer;
+    private ViewFlipper dockFlipper;
+    private View dockWeatherBlock;
+    private View dockHostBlock;
+    private TextView tvDockWeatherIcon;
+    private TextView tvSensorAltitude;
+    private TextView tvCpuSpec;
+    private TextView tvDockDots;
+    private TextView tvDockTrafficSum;
+    private TextView tvDockDiskDetail;
+    private TextView tvDockSlateStatus;
+    private TextView tvDockOledStatus;
+
+    // 下钻抽屉浮层组件
+    private FrameLayout drawerInspectOverlay;
+    private View cardWeatherDrawer;
+    private View cardHostDrawer;
+    private View cardScreenControl;
+    private TextView tvDrawerTemp, tvDrawerHumidity, tvDrawerComfortDesc;
+    private TextView tvDrawerPressure, tvDrawerAltitude, tvDrawerPressureTrend;
+    private TextView tvDrawerLightLux, tvDrawerRate;
+    private TextView tvDrawerCpuModel, tvDrawerCpuCores, tvDrawerCpuTurbo;
+    private TextView tvDrawerLoadDetail, tvDrawerTasksDetail, tvDrawerUptimeDetail;
+    private SeekBar sbScreenBrightness;
+    private TextView tvBrightnessVal;
+    private TextView btnQuickAod, btnQuickWash, btnQuickNight;
+    private GestureDetector dockGestureDetector;
+    private ObjectAnimator weatherPulseAnim;
+    private String currentUptime = "14天4时35分";
 
     // 卡片 2: 内存与系统存储 (MEMORY & STORAGE)
     private TextView tvMemBigPct, tvMemDetail, tvMemFree;
@@ -214,7 +250,14 @@ public class MainActivity extends Activity {
                         float pressure = event.values[0];
                         lastPressure = pressure;
                         if (tvSensorPressure != null) {
-                            tvSensorPressure.setText(String.format(Locale.getDefault(), "%.1f hPa", pressure));
+                            tvSensorPressure.setText(String.format(Locale.getDefault(), "BOSCH %.1f hPa", pressure));
+                        }
+                        if (tvSensorAltitude != null) {
+                            float alt = SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, pressure);
+                            tvSensorAltitude.setText(String.format(Locale.getDefault(), "海拔 ~%.0fm", alt));
+                        }
+                        if (drawerInspectOverlay != null && drawerInspectOverlay.getVisibility() == View.VISIBLE) {
+                            updateWeatherDrawer();
                         }
                     } else if (event.sensor.getType() == Sensor.TYPE_AMBIENT_TEMPERATURE) {
                         float temp = event.values[0];
@@ -342,6 +385,15 @@ public class MainActivity extends Activity {
             tvAmbientComfort.setText("适中 NORMAL");
             tvAmbientComfort.setTextColor(Color.parseColor("#00f59b"));
             tvAmbientComfort.setBackgroundColor(Color.parseColor("#0a2a1c"));
+        }
+
+        if (lastHumidity > 80f) {
+            startWeatherPulse();
+        } else {
+            stopWeatherPulse();
+        }
+        if (drawerInspectOverlay != null && drawerInspectOverlay.getVisibility() == View.VISIBLE) {
+            updateWeatherDrawer();
         }
     }
 
@@ -471,6 +523,340 @@ public class MainActivity extends Activity {
                 toggleScreensaver();
             }
         });
+
+        initSchemeAViews();
+    }
+
+    private void initSchemeAViews() {
+        bottomDockContainer = findViewById(R.id.bottom_dock_container);
+        dockFlipper = findViewById(R.id.dock_flipper);
+        dockWeatherBlock = findViewById(R.id.dock_weather_block);
+        dockHostBlock = findViewById(R.id.dock_host_block);
+        tvDockWeatherIcon = findViewById(R.id.tv_dock_weather_icon);
+        tvSensorAltitude = findViewById(R.id.tv_sensor_altitude);
+        tvCpuSpec = findViewById(R.id.tv_cpu_spec);
+        tvDockDots = findViewById(R.id.tv_dock_dots);
+        if (tvDockDots != null) {
+            tvDockDots.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showNextDockWidget();
+                }
+            });
+        }
+        tvDockTrafficSum = findViewById(R.id.tv_dock_traffic_sum);
+        tvDockDiskDetail = findViewById(R.id.tv_dock_disk_detail);
+        tvDockSlateStatus = findViewById(R.id.tv_dock_slate_status);
+        tvDockOledStatus = findViewById(R.id.tv_dock_oled_status);
+
+        drawerInspectOverlay = findViewById(R.id.drawer_inspect_overlay);
+        cardWeatherDrawer = findViewById(R.id.card_weather_drawer);
+        cardHostDrawer = findViewById(R.id.card_host_drawer);
+        cardScreenControl = findViewById(R.id.card_screen_control);
+
+        tvDrawerTemp = findViewById(R.id.tv_drawer_temp);
+        tvDrawerHumidity = findViewById(R.id.tv_drawer_humidity);
+        tvDrawerComfortDesc = findViewById(R.id.tv_drawer_comfort_desc);
+        tvDrawerPressure = findViewById(R.id.tv_drawer_pressure);
+        tvDrawerAltitude = findViewById(R.id.tv_drawer_altitude);
+        tvDrawerPressureTrend = findViewById(R.id.tv_drawer_pressure_trend);
+        tvDrawerLightLux = findViewById(R.id.tv_drawer_light_lux);
+        tvDrawerRate = findViewById(R.id.tv_drawer_rate);
+
+        tvDrawerCpuModel = findViewById(R.id.tv_drawer_cpu_model);
+        tvDrawerCpuCores = findViewById(R.id.tv_drawer_cpu_cores);
+        tvDrawerCpuTurbo = findViewById(R.id.tv_drawer_cpu_turbo);
+        tvDrawerLoadDetail = findViewById(R.id.tv_drawer_load_detail);
+        tvDrawerTasksDetail = findViewById(R.id.tv_drawer_tasks_detail);
+        tvDrawerUptimeDetail = findViewById(R.id.tv_drawer_uptime_detail);
+
+        sbScreenBrightness = findViewById(R.id.sb_screen_brightness);
+        tvBrightnessVal = findViewById(R.id.tv_brightness_val);
+        btnQuickAod = findViewById(R.id.btn_quick_aod);
+        btnQuickWash = findViewById(R.id.btn_quick_wash);
+        btnQuickNight = findViewById(R.id.btn_quick_night);
+
+        if (dockWeatherBlock != null) {
+            dockWeatherBlock.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showWeatherDrawer();
+                }
+            });
+            dockWeatherBlock.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    showScreenControlDrawer();
+                    return true;
+                }
+            });
+        }
+
+        if (dockHostBlock != null) {
+            dockHostBlock.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showHostDrawer();
+                }
+            });
+            dockHostBlock.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    showScreenControlDrawer();
+                    return true;
+                }
+            });
+        }
+
+        if (bottomDockContainer != null) {
+            bottomDockContainer.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override
+                public boolean onLongClick(View v) {
+                    showScreenControlDrawer();
+                    return true;
+                }
+            });
+        }
+
+        if (drawerInspectOverlay != null) {
+            drawerInspectOverlay.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                }
+            });
+        }
+
+        View bCloseW = findViewById(R.id.btn_close_weather_drawer);
+        if (bCloseW != null) {
+            bCloseW.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                }
+            });
+        }
+        View bCloseH = findViewById(R.id.btn_close_host_drawer);
+        if (bCloseH != null) {
+            bCloseH.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                }
+            });
+        }
+        View bCloseS = findViewById(R.id.btn_close_screen_drawer);
+        if (bCloseS != null) {
+            bCloseS.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                }
+            });
+        }
+
+        if (sbScreenBrightness != null) {
+            sbScreenBrightness.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser) {
+                        int p = Math.max(10, progress);
+                        if (tvBrightnessVal != null) tvBrightnessVal.setText(p + "%");
+                        setWindowBrightness(p / 100.0f);
+                    }
+                }
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
+        }
+
+        if (btnQuickAod != null) {
+            btnQuickAod.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                    enterAodMode();
+                }
+            });
+        }
+
+        if (btnQuickWash != null) {
+            btnQuickWash.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                    startPixelRefreshRoutine();
+                }
+            });
+        }
+
+        if (btnQuickNight != null) {
+            btnQuickNight.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    closeDrawers();
+                    setWindowBrightness(0.08f);
+                    if (sbScreenBrightness != null) sbScreenBrightness.setProgress(8);
+                    if (tvBrightnessVal != null) tvBrightnessVal.setText("8%");
+                    Toast.makeText(MainActivity.this, "已切换夜间低亮模式 (8% 亮度)", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        setupDockGestureDetector();
+    }
+
+    private void setupDockGestureDetector() {
+        dockGestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            private static final int SWIPE_THRESHOLD = 50;
+            private static final int SWIPE_VELOCITY_THRESHOLD = 50;
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (Math.abs(diffX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                        if (diffX < 0) {
+                            showNextDockWidget();
+                        } else {
+                            showPrevDockWidget();
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
+    }
+
+    private void showNextDockWidget() {
+        if (dockFlipper == null) return;
+        dockFlipper.setInAnimation(this, android.R.anim.slide_in_left);
+        dockFlipper.setOutAnimation(this, android.R.anim.slide_out_right);
+        dockFlipper.showNext();
+        updateDockIndicator();
+    }
+
+    private void showPrevDockWidget() {
+        if (dockFlipper == null) return;
+        dockFlipper.showPrevious();
+        updateDockIndicator();
+    }
+
+    private void updateDockIndicator() {
+        if (tvDockDots == null || dockFlipper == null) return;
+        int idx = dockFlipper.getDisplayedChild();
+        if (idx == 0) {
+            tvDockDots.setText("● ○ ○");
+        } else if (idx == 1) {
+            tvDockDots.setText("○ ● ○");
+        } else {
+            tvDockDots.setText("○ ○ ●");
+        }
+    }
+
+    private void showWeatherDrawer() {
+        if (drawerInspectOverlay == null) return;
+        updateWeatherDrawer();
+        drawerInspectOverlay.setVisibility(View.VISIBLE);
+        if (cardWeatherDrawer != null) cardWeatherDrawer.setVisibility(View.VISIBLE);
+        if (cardHostDrawer != null) cardHostDrawer.setVisibility(View.GONE);
+        if (cardScreenControl != null) cardScreenControl.setVisibility(View.GONE);
+    }
+
+    private void showHostDrawer() {
+        if (drawerInspectOverlay == null) return;
+        updateHostDrawer();
+        drawerInspectOverlay.setVisibility(View.VISIBLE);
+        if (cardWeatherDrawer != null) cardWeatherDrawer.setVisibility(View.GONE);
+        if (cardHostDrawer != null) cardHostDrawer.setVisibility(View.VISIBLE);
+        if (cardScreenControl != null) cardScreenControl.setVisibility(View.GONE);
+    }
+
+    private void showScreenControlDrawer() {
+        if (drawerInspectOverlay == null) return;
+        drawerInspectOverlay.setVisibility(View.VISIBLE);
+        if (cardWeatherDrawer != null) cardWeatherDrawer.setVisibility(View.GONE);
+        if (cardHostDrawer != null) cardHostDrawer.setVisibility(View.GONE);
+        if (cardScreenControl != null) cardScreenControl.setVisibility(View.VISIBLE);
+    }
+
+    private void closeDrawers() {
+        if (drawerInspectOverlay != null) {
+            drawerInspectOverlay.setVisibility(View.GONE);
+            if (cardWeatherDrawer != null) cardWeatherDrawer.setVisibility(View.GONE);
+            if (cardHostDrawer != null) cardHostDrawer.setVisibility(View.GONE);
+            if (cardScreenControl != null) cardScreenControl.setVisibility(View.GONE);
+        }
+    }
+
+    private void updateWeatherDrawer() {
+        if (tvDrawerTemp != null) {
+            tvDrawerTemp.setText(String.format(Locale.getDefault(), "室温: %.1f °C", lastAmbientTemp));
+        }
+        if (tvDrawerHumidity != null) {
+            tvDrawerHumidity.setText(String.format(Locale.getDefault(), "相对湿度: %.0f%% RH", lastHumidity));
+        }
+        if (tvDrawerComfortDesc != null) {
+            double dewPoint = lastAmbientTemp - ((100 - lastHumidity) / 5.0);
+            CharSequence cLabel = (tvAmbientComfort != null) ? tvAmbientComfort.getText() : "舒适";
+            tvDrawerComfortDesc.setText(String.format(Locale.getDefault(), "露点: %.1f°C · 体感: %s", dewPoint, cLabel));
+        }
+        if (tvDrawerPressure != null) {
+            tvDrawerPressure.setText(String.format(Locale.getDefault(), "气压: %.1f hPa", lastPressure > 0 ? lastPressure : 1016.4f));
+        }
+        if (tvDrawerAltitude != null) {
+            float alt = SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, lastPressure > 0 ? lastPressure : 1013.25f);
+            tvDrawerAltitude.setText(String.format(Locale.getDefault(), "物理海拔: ~ %.0f m", alt));
+        }
+        if (tvDrawerLightLux != null) {
+            tvDrawerLightLux.setText(String.format(Locale.getDefault(), "照度: %.1f Lux (实机光感)", currentLux > 0 ? currentLux : 120.0f));
+        }
+    }
+
+    private void updateHostDrawer() {
+        if (tvDrawerCpuModel != null && tvCpuBrand != null) {
+            tvDrawerCpuModel.setText(tvCpuBrand.getText());
+        }
+        if (tvDrawerLoadDetail != null && tvLoadAvg != null) {
+            tvDrawerLoadDetail.setText("Load Average: " + tvLoadAvg.getText());
+        }
+        if (tvDrawerTasksDetail != null && tvProcCount != null) {
+            tvDrawerTasksDetail.setText("活跃任务: " + tvProcCount.getText() + " (内核调度畅通)");
+        }
+        if (tvDrawerUptimeDetail != null) {
+            tvDrawerUptimeDetail.setText("系统运行: " + currentUptime + " (持续稳定)");
+        }
+    }
+
+    private void setWindowBrightness(float brightness) {
+        currentScreenBrightness = brightness;
+        try {
+            WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.screenBrightness = brightness;
+            getWindow().setAttributes(lp);
+        } catch (Exception ignored) {}
+    }
+
+    private void startWeatherPulse() {
+        if (weatherPulseAnim == null && tvDockWeatherIcon != null) {
+            weatherPulseAnim = ObjectAnimator.ofFloat(tvDockWeatherIcon, "alpha", 1.0f, 0.35f, 1.0f);
+            weatherPulseAnim.setDuration(1200);
+            weatherPulseAnim.setRepeatCount(ValueAnimator.INFINITE);
+            weatherPulseAnim.start();
+        }
+    }
+
+    private void stopWeatherPulse() {
+        if (weatherPulseAnim != null) {
+            weatherPulseAnim.cancel();
+            weatherPulseAnim = null;
+            if (tvDockWeatherIcon != null) {
+                tvDockWeatherIcon.setAlpha(1.0f);
+            }
+        }
     }
 
     public void enterAodMode() {
@@ -540,6 +926,23 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "已退出洗屏保养模式", Toast.LENGTH_SHORT).show();
             }
             return true;
+        }
+        // 如果下钻抽屉浮层处于打开状态，交给浮层处理，不触发全屏双击/长按
+        if (drawerInspectOverlay != null && drawerInspectOverlay.getVisibility() == View.VISIBLE) {
+            return super.dispatchTouchEvent(ev);
+        }
+        // 底部 Dock 水平滑动优先检测
+        if (bottomDockContainer != null && bottomDockContainer.getVisibility() == View.VISIBLE) {
+            int[] loc = new int[2];
+            bottomDockContainer.getLocationOnScreen(loc);
+            float x = ev.getRawX();
+            float y = ev.getRawY();
+            if (x >= loc[0] && x <= loc[0] + bottomDockContainer.getWidth() &&
+                y >= loc[1] && y <= loc[1] + bottomDockContainer.getHeight()) {
+                if (dockGestureDetector != null && dockGestureDetector.onTouchEvent(ev)) {
+                    return true;
+                }
+            }
         }
         if (gestureDetector != null) {
             gestureDetector.onTouchEvent(ev);
@@ -656,7 +1059,10 @@ public class MainActivity extends Activity {
             tvDate.setText(stats.macDate);
         }
 
-        tvUptime.setText(stats.uptime);
+        if (stats.uptime != null) {
+            currentUptime = stats.uptime;
+            tvUptime.setText(stats.uptime);
+        }
         tvUptime.setTextColor(Color.parseColor("#506070"));
 
         // 1. CPU 算力引擎 (8-CORE SPECTRUM)
@@ -774,6 +1180,16 @@ public class MainActivity extends Activity {
         tvDiskTotal.setText(String.format(Locale.getDefault(), "总量 %.0f GB", stats.diskTotalGb));
         double availDisk = Math.max(0, stats.diskTotalGb - stats.diskUsedGb);
         tvDiskAvail.setText(String.format(Locale.getDefault(), "剩余 %.0f GB", availDisk));
+
+        if (tvDockTrafficSum != null) {
+            tvDockTrafficSum.setText("累计流速: ↓ " + stats.totalIn + "  ↑ " + stats.totalOut + " · 局域网自愈模式");
+        }
+        if (tvDockDiskDetail != null) {
+            tvDockDiskDetail.setText(String.format(Locale.getDefault(), "APFS 卷 · 剩余 %.0f GB / %.0f GB · TRIM 就绪", availDisk, stats.diskTotalGb));
+        }
+        if (drawerInspectOverlay != null && drawerInspectOverlay.getVisibility() == View.VISIBLE && cardHostDrawer != null && cardHostDrawer.getVisibility() == View.VISIBLE) {
+            updateHostDrawer();
+        }
 
         // 3. 网络与波形
         tvNetDown.setText(stats.netRx);

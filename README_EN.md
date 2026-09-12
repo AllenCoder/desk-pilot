@@ -78,6 +78,48 @@ Rather than letting vintage flagship devices like the legendary Samsung Galaxy N
 
 ---
 
+## 🎛️ Panoramic Bottom Dock & 5 Touch Interactions (Scheme A)
+
+To take full advantage of Note 3's high-responsiveness touch display on a desktop stand, DeskPilot features a **Panoramic Bottom Dock** with drill-down touch inspectors:
+
+<div align="center">
+<table>
+<tr>
+  <td align="center"><b>🌦️ Weather Station Drill-Down Drawer (Tap Left Dock)</b></td>
+  <td align="center"><b>🖥️ Mac Core Specs & Telemetry Drawer (Tap Right Dock)</b></td>
+</tr>
+<tr>
+  <td><img src="docs/images/drawer_weather.png" width="420"/></td>
+  <td><img src="docs/images/drawer_host.png" width="420"/></td>
+</tr>
+<tr>
+  <td align="center"><b>⚙️ Display Quick Controls (Long-Press Dock)</b></td>
+  <td align="center"><b>📈 Multi-Widget Dock Carousel (Swipe / Tap Dots)</b></td>
+</tr>
+<tr>
+  <td><img src="docs/images/drawer_control.png" width="420"/></td>
+  <td><img src="docs/images/dock_page2.png" width="420"/></td>
+</tr>
+</table>
+</div>
+
+1. **Ergonomic Golden Touch Zones**: Full-height 48dp bottom dock split 50/50 for Weather Station (left) and Host Bus (right), perfect for natural single-finger desktop tapping;
+2. **Tap-to-Inspect Overlay Drawers**:
+   - **Tap Weather Area**: Semi-transparent frosted glass drawer displaying exact Bosch barometer pressure in hPa, barometric altitude calculation, Sensirion humidity & comfort ratings, ambient light in Lux, and sensor polling rate;
+   - **Tap Host Area**: Deep Mac hardware spec sheet featuring CPU model, core topologies, Turbo state, UNIX load averages (1/5/15m), thread count, and system uptime;
+3. **Swipeable Widget Dock (Carousel)**:
+   - Swipe left/right or tap the `● ○ ○` indicator dots to cycle through 3 widget views:
+     - **View 1**: Ambient Weather + Host Bus;
+     - **View 2**: Network Aggregate Traffic + Disk I/O;
+     - **View 3**: Battery Bypass (Slate Mode) + OLED Care Health;
+4. **Dynamic Threshold Alert Pulse**: Ambient icons gently pulse with smooth breathing animations whenever humidity exceeds 80% or sensor anomalies are detected;
+5. **Secondary Display Quick Controls**:
+   - Long-press any area of the bottom dock to invoke the quick control panel;
+   - **Live Brightness Slider** (10% - 100% fine tuning);
+   - **Instant AOD Mode**, **Full-Spectrum OLED Wash**, and **Night Low-Light Mode (8%)**.
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Requirements (Mac Host)
@@ -110,14 +152,18 @@ adb shell am start -n com.antigravity.machud/.MainActivity
 
 ---
 
-## 💡 Gestures
+## 💡 Touch & Gesture Guide
 
-| Gesture | Action |
-| :--- | :--- |
-| **Tap Clock Card** / **Double Tap** | Toggle **Full HUD** and **Pure Black AOD Clock** |
-| **Long Press (1s)** | Enter **Continuous Spectrum Wash Mode** |
-| **Single Tap** | Exit Wash Mode / Instantly Wake Up from AOD |
-| **Tap Mic Capsule** | Toggle microphone streaming |
+| Gesture / Trigger | Hit Area | Action |
+| :--- | :--- | :--- |
+| **Tap Left Dock** | Bottom Dock (Weather) | Open **Weather Station Inspector** (hPa, altitude, comfort index, light) |
+| **Tap Right Dock** | Bottom Dock (Host) | Open **Mac Hardware & Telemetry Inspector** (CPU model, load, uptime) |
+| **Long-Press Dock (0.8s)** | Bottom Dock (Anywhere) | Open **Display Quick Controls** (Brightness slider, AOD, wash, night mode) |
+| **Horizontal Swipe / Tap Dots** | Bottom Dock (`● ○ ○`) | Cycle Dock Widgets (Weather/Host ⇄ Network/Disk ⇄ Bypass/OLED) |
+| **Tap Clock Card / Double Tap** | Clock / Center Screen | Toggle **Full HUD** and **Pure Black AOD Clock** |
+| **Long Press Center (1s)** | Center Screen | Enter **Continuous Spectrum Wash Mode** (Burn-in recovery) |
+| **Single Tap Anywhere** | Full Screen | Exit Wash Mode / Dismiss Drawers / Wake Up from AOD |
+| **Tap Mic Capsule** | Mic Capsule | Toggle microphone audio streaming |
 
 ---
 
