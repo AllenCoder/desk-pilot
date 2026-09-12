@@ -1311,7 +1311,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="NOTE 3 HUD · 60FPS SYNC"
+                    android:text="DESKPILOT · 60FPS SYNC"
                     android:textColor="#323d47"
                     android:textSize="8sp"
                     android:gravity="center"

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Mac HUD</string>
+    <string name="app_name">DeskPilot</string>
     <string name="mic_idle">🎙️ 麦克风已关闭 (点击开启)</string>
     <string name="mic_active">🎙️ 正在输入至 Mac (点击关闭)</string>
 </resources>

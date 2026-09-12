@@ -1,20 +1,21 @@
 <div align="center">
 
-# ⚡ Note3-MacHUD
+# ⚡ DeskPilot
 
-**Turn a vintage Samsung Galaxy Note 3 into a high-density macOS Desktop HUD, Ambient Weather Station & Low-Latency Wireless Microphone**
+**Your Ultimate Mac Desktop Co-Pilot · Ambient Weather Station · Low-Latency Wireless Microphone**
+*(Powered by Reborn Flagship AMOLED Hardware)*
 
 [![macOS](https://img.shields.io/badge/macOS-11.0%2B-black?style=flat-square&logo=apple)](https://apple.com)
 [![Android](https://img.shields.io/badge/Android-5.0%2B-green?style=flat-square&logo=android)](https://android.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Swift](https://img.shields.io/badge/Swift-5.0%2B-orange?style=flat-square&logo=swift)](https://swift.org)
-[![AMOLED Care](https://img.shields.io/badge/AMOLED-Burn--in%20Protected-purple?style=flat-square)](https://github.com/AllenCoder/note3-mac-hud)
+[![AMOLED Care](https://img.shields.io/badge/AMOLED-Burn--in%20Protected-purple?style=flat-square)](https://github.com/AllenCoder/desk-pilot)
 
 [简体中文说明](README.md) · [Features](#-key-features) · [Quick Start](#-quick-start) · [AMOLED Care](#-amoled-burn-in-protection) · [Architecture](#-architecture)
 
 <br/>
 
-<img src="docs/images/hud_preview.png" alt="Note3-MacHUD Dashboard Interface" width="880"/>
+<img src="docs/images/hud_preview.png" alt="DeskPilot Dashboard Interface" width="880"/>
 
 </div>
 
@@ -22,14 +23,16 @@
 
 ## 📖 Concept
 
-The vintage flagship **Samsung Galaxy Note 3 (N9005/N9006/N9002)** packs incredible hardware that remains extraordinary for a dedicated desktop HUD:
+**DeskPilot** is engineered as the ultimate secondary command station for macOS workstations.
+
+Rather than letting vintage flagship devices like the legendary Samsung Galaxy Note 3 gather dust, we tap into their incredible built-in hardware gifts that surpass many modern USB displays:
 - **5.7-inch 1080P Super AMOLED display** (pitch black pixels completely power down, rich contrast);
-- **Built-in Bosch industrial barometer** (`Sensor.TYPE_PRESSURE`);
+- **Built-in Bosch industrial barometer** (`Sensor.TYPE_PRESSURE`, real-time atmospheric pressure and altitude);
 - **Built-in Sensirion SHTC1 temperature & relative humidity sensor** (`Sensor.TYPE_RELATIVE_HUMIDITY` & `AMBIENT_TEMP`);
 - **Maxim MAX88921 ambient light sensor**;
 - **Dual noise-canceling physical microphones** and **Kernel-level battery bypass (Slate Mode, power directly from USB without charging battery to prevent swelling)**.
 
-**Note3-MacHUD** brings this hardware back to life: backed by a lightweight macOS kernel telemetry daemon and a smooth 60FPS native Android app, operating over USB direct connection with Wi-Fi failover.
+**DeskPilot** brings this hardware back to life: backed by a lightweight macOS kernel telemetry daemon and a smooth 60FPS native Android app, operating over USB direct connection with Wi-Fi failover.
 
 ---
 
@@ -89,16 +92,16 @@ brew install android-platform-tools
 
 ### 2. Start Mac Daemon
 ```bash
-git clone https://github.com/AllenCoder/note3-mac-hud.git
-cd note3-mac-hud
+git clone https://github.com/AllenCoder/desk-pilot.git
+cd desk-pilot
 
 ./mac/run_machud.sh
 ```
 
-### 3. Install on Note 3
-Connect your Note 3 via USB with **USB Debugging** enabled:
+### 3. Install on Android Device
+Connect your Note 3 or Android device via USB with **USB Debugging** enabled:
 ```bash
-adb install -r android/MacHUD.apk
+adb install -r android/DeskPilot.apk
 adb shell am start -n com.antigravity.machud/.MainActivity
 
 # Activate battery bypass protection

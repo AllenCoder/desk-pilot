@@ -83,10 +83,12 @@ if [ ! -f "$DEBUG_KEYSTORE" ]; then
 fi
 
 "$BUILD_TOOLS/apksigner" sign --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --key-pass pass:android \
-  --out "$APP_DIR/MacHUD.apk" "$OUT_DIR/aligned.apk"
+  --out "$APP_DIR/DeskPilot.apk" "$OUT_DIR/aligned.apk"
+
+cp "$APP_DIR/DeskPilot.apk" "$APP_DIR/MacHUD.apk"
 
 echo "=================================================="
 echo "🎉 BUILD SUCCESS! APK generated at:"
-echo "   $APP_DIR/MacHUD.apk"
+echo "   $APP_DIR/DeskPilot.apk"
 echo "=================================================="
-ls -lh "$APP_DIR/MacHUD.apk"
+ls -lh "$APP_DIR/DeskPilot.apk"

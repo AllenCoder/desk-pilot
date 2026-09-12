@@ -1,35 +1,38 @@
 <div align="center">
 
-# ⚡ Note3-MacHUD
+# ⚡ DeskPilot
 
-**将闲置的三星 Galaxy Note 3 蜕变为 macOS 极客桌面工控副屏、微气象站与低延迟无线麦克风**
+**为 Mac 而生的终极桌面副驾：全景工控遥测 · 环境气象微站 · 低延迟无线麦克风**
+*(Powered by Reborn Flagship AMOLED Hardware)*
 
 [![macOS](https://img.shields.io/badge/macOS-11.0%2B-black?style=flat-square&logo=apple)](https://apple.com)
 [![Android](https://img.shields.io/badge/Android-5.0%2B-green?style=flat-square&logo=android)](https://android.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Swift](https://img.shields.io/badge/Swift-5.0%2B-orange?style=flat-square&logo=swift)](https://swift.org)
-[![AMOLED Care](https://img.shields.io/badge/AMOLED-Burn--in%20Protected-purple?style=flat-square)](https://github.com/AllenCoder/note3-mac-hud)
+[![AMOLED Care](https://img.shields.io/badge/AMOLED-Burn--in%20Protected-purple?style=flat-square)](https://github.com/AllenCoder/desk-pilot)
 
 [English Documentation](README_EN.md) · [功能特性](#-核心功能) · [快速开始](#-快速开始) · [护屏机制](#-amoled-全方位防烧屏体系) · [架构原理](#-系统架构)
 
 <br/>
 
-<img src="docs/images/hud_preview.png" alt="Note3-MacHUD 主仪表盘界面" width="880"/>
+<img src="docs/images/hud_preview.png" alt="DeskPilot 主仪表盘界面" width="880"/>
 
 </div>
 
 ---
 
-## 📖 项目起源与背景
+## 📖 项目起源与理念
 
-抽屉里闲置多年的老机皇 **三星 Galaxy Note 3 (N9005/N9006/N9002)**，其硬件参数即使放到今天依然是一台绝妙的桌面硬件：
-- **5.7 英寸 1080P Super AMOLED 屏幕**（纯黑像素完全断电、色彩生动极客）；
-- **内置博世（BOSCH）工业级微型气压计**（`Sensor.TYPE_PRESSURE`）；
+**DeskPilot** 的初心是打造属于 macOS 极客的 **“桌面第二视界 / 智能副驾”**。
+
+与其让十年前的三星 Galaxy Note 3 等一代经典老机皇在抽屉里吃灰，或沦为电子垃圾，我们深度挖掘其超越现代许多塑料副屏的绝妙硬件天赋：
+- **5.7 英寸 1080P Super AMOLED 屏幕**（纯黑像素完全断电、高对比度、极客发色）；
+- **内置博世（BOSCH）工业级微型气压计**（`Sensor.TYPE_PRESSURE`，实时感知环境微气压与海拔）；
 - **内置盛思锐（Sensirion SHTC1）温湿度传感器**（`Sensor.TYPE_RELATIVE_HUMIDITY` & `AMBIENT_TEMP`）；
 - **美信（Maxim MAX88921）环境光度与 RGB 色温传感器**；
-- **双路降噪物理麦克风** 与 **内核级旁路供电（Slate Mode，插电不给电池充电，杜绝鼓包发热）**。
+- **双路物理降噪麦克风** 与 **内核级旁路供电（Slate Mode，插电不给电池充电，从根本上杜绝电池鼓包）**。
 
-**Note3-MacHUD** 应运而生：通过 macOS 内核遥测守护进程与极轻量原生 Android 客户端，在 USB 直连（带 Wi-Fi 无感自愈双链路）下，构建出毫秒级响应、信息密度饱和、视效硬核的 **桌面终极工控 HUD**。
+通过 macOS 内核遥测守护进程与极轻量原生 Android 客户端，在 USB 直连（带 Wi-Fi 无感自愈双链路）下，构建出毫秒级响应、信息密度饱和、视效硬核的 **桌面领航员（DeskPilot）**。
 
 ---
 
@@ -127,23 +130,23 @@ brew install android-platform-tools
 ### 2. 启动 Mac 端遥测与音频服务
 克隆本仓库并一键运行守护脚本：
 ```bash
-git clone https://github.com/AllenCoder/note3-mac-hud.git
-cd note3-mac-hud
+git clone https://github.com/AllenCoder/desk-pilot.git
+cd desk-pilot
 
 # 编译并启动 Mac 服务守护进程
 ./mac/run_machud.sh
 ```
 
 ### 3. 安装手机端并连接
-1. 将 Note 3 通过 USB 连接到 Mac，开启 **开发者选项 -> USB 调试**；
+1. 将 Note 3 或其他 Android 手机通过 USB 连接到 Mac，开启 **开发者选项 -> USB 调试**；
 2. 运行安装脚本直接推送预编译 APK 到手机：
 ```bash
-adb install -r android/MacHUD.apk
+adb install -r android/DeskPilot.apk
 
-# 启动 HUD 主应用
+# 启动 DeskPilot 主应用
 adb shell am start -n com.antigravity.machud/.MainActivity
 
-# 启动 Note 3 旁路供电保护 (杜绝电池鼓包)
+# (针对 Note 3 等三星机型) 启动旁路供电保护 (杜绝电池鼓包)
 ./scripts/battery_guard.sh
 ```
 
@@ -153,9 +156,9 @@ adb shell am start -n com.antigravity.machud/.MainActivity
 
 | 手势操作 | 响应动作 |
 | :--- | :--- |
-| **轻触顶部时钟卡片** / **双击屏幕** | 切换 **全功能 HUD** 与 **纯黑 AOD 漂移时钟** |
+| **轻触顶部时钟卡片** / **双击屏幕** | 切换 **全功能仪表盘** 与 **纯黑 AOD 漂移时钟** |
 | **长按屏幕 1 秒** | 进入 **持续全光谱抗衰洗屏模式** (消除潜在残影) |
-| **单击屏幕任意位置** | 退出洗屏保养模式 / 从 AOD 模式瞬间唤醒 HUD |
+| **单击屏幕任意位置** | 退出洗屏保养模式 / 从 AOD 模式瞬间唤醒主界面 |
 | **轻触麦克风胶囊** | 手动开启 / 闭麦（支持 Mac 端语音输入法即时联动） |
 
 ---
@@ -163,12 +166,12 @@ adb shell am start -n com.antigravity.machud/.MainActivity
 ## 📁 目录结构说明
 
 ```
-note3-mac-hud/
+desk-pilot/
 ├── android/               # Android 客户端工程 (无需 Gradle, 秒级极速构建)
 │   ├── src/               # 原生 Java 核心类 (传感器、UI波形、音频采集)
 │   ├── res/               # 矢量图标、深色卡片背景与布局 XML
 │   ├── AndroidManifest.xml
-│   ├── MacHUD.apk         # 开箱即用预编译 APK 安装包
+│   ├── DeskPilot.apk      # 开箱即用预编译 APK 安装包
 │   └── build_apk.sh       # 极轻量免 Gradle 构建脚本
 ├── mac/                   # macOS 服务端程序
 │   ├── stats_server.swift # 系统内核指标采集 HTTP/UDP 服务
@@ -193,7 +196,7 @@ note3-mac-hud/
 # 只需本地配置好 ANDROID_SDK_ROOT 与 OpenJDK
 ./android/build_apk.sh
 ```
-全程 2 秒内极速生成签名对齐的 `MacHUD.apk`！
+全程 2 秒内极速生成签名对齐的 `DeskPilot.apk`！
 
 ---
 
