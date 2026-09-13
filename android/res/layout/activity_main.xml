@@ -1131,9 +1131,10 @@
 
                 <!-- 底部小字 -->
                 <TextView
+                    android:id="@+id/tv_footer_version"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="DESKPILOT · 60FPS SYNC"
+                    android:text="DESKPILOT v1.1.0 · 60FPS SYNC"
                     android:textColor="#323d47"
                     android:textSize="8sp"
                     android:gravity="center"

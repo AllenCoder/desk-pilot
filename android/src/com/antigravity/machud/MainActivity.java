@@ -942,7 +942,7 @@ public class MainActivity extends Activity {
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-        builder.setTitle("🖥️ Mac 主机连接与配对设置");
+        builder.setTitle("🖥️ DeskPilot v1.1.0 · 连接与配对设置");
 
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
