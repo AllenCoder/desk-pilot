@@ -238,11 +238,13 @@ func topProcs() -> [(name: String, cpu: Double, memStr: String)] {
     p.arguments = ["-arcx", "-o", "%cpu,rss,comm"]
     p.standardOutput = out
     p.standardError = Pipe()
-    try? p.run(); p.waitUntilExit()
-    let data = out.fileHandleForReading.readDataToEndOfFile()
-    guard let str = String(data: data, encoding: .utf8) else { return [] }
-    var res: [(String, Double, String)] = []
-    let lines = str.components(separatedBy: "\n").dropFirst()
+    do {
+        try p.run()
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        guard let str = String(data: data, encoding: .utf8) else { return [] }
+        var res: [(String, Double, String)] = []
+        let lines = str.components(separatedBy: "\n").dropFirst()
     for l in lines {
         let t = l.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { continue }
@@ -262,6 +264,9 @@ func topProcs() -> [(name: String, cpu: Double, memStr: String)] {
         if res.count >= 4 { break }
     }
     return res
+    } catch {
+        return []
+    }
 }
 
 func fmtSpeed(_ b: Double) -> String {
@@ -316,19 +321,19 @@ func startPingMonitor() {
             p.executableURL = URL(fileURLWithPath: "/sbin/ping")
             p.arguments = ["-c", "1", "-t", "1", "223.5.5.5"]
             p.standardOutput = out
-            p.standardError = Pipe()
-            try? p.run()
-            p.waitUntilExit()
-            let d = out.fileHandleForReading.readDataToEndOfFile()
-            if let str = String(data: d, encoding: .utf8) {
-                if let range = str.range(of: "time=") {
+            do {
+                try p.run()
+                let d = out.fileHandleForReading.readDataToEndOfFile()
+                p.waitUntilExit()
+                if let str = String(data: d, encoding: .utf8),
+                   let range = str.range(of: "time=") {
                     let sub = str[range.upperBound...]
                     let parts = sub.split(separator: " ")
                     if let first = parts.first, let ms = Double(first) {
                         gPingMs = String(format: "%.0fms", ms)
                     }
                 }
-            }
+            } catch {}
             Thread.sleep(forTimeInterval: 4.0)
         }
     }
@@ -401,8 +406,8 @@ func refreshData() {
     }
     prevNetIn = net.inn; prevNetOut = net.out; prevNetTime = now
 
-    let df1 = DateFormatter(); df1.dateFormat = "HH:mm:ss"
-    let df2 = DateFormatter(); df2.dateFormat = "yyyy年M月d日 EEE"; df2.locale = Locale(identifier:"zh_CN")
+    let df1 = DateFormatter(); df1.dateFormat = "HH:mm:ss"; df1.timeZone = TimeZone.current
+    let df2 = DateFormatter(); df2.dateFormat = "yyyy年M月d日 EEE"; df2.locale = Locale(identifier:"zh_CN"); df2.timeZone = TimeZone.current
 
     let cores = cpu.cores.map { String(format:"%.1f",$0) }.joined(separator:",")
     let procsJ = procs.map { p in
@@ -486,11 +491,16 @@ let initNet = readNet()
 prevNetIn = initNet.inn; prevNetOut = initNet.out; prevNetTime = Date()
 refreshData() // 首次预加载
 
-// 后台 1.0 秒更新一次缓存
-let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos:.utility))
-timer.schedule(deadline:.now() + 1.0, repeating: 1.0)
-timer.setEventHandler { refreshData() }
-timer.resume()
+// 后台 1.0 秒更新一次缓存 (采用独立 Thread，确保系统休眠唤醒后不丢失调度)
+let refreshThread = Thread {
+    while true {
+        refreshData()
+        Thread.sleep(forTimeInterval: 1.0)
+    }
+}
+refreshThread.name = "StatsRefreshThread"
+refreshThread.qualityOfService = .userInitiated
+refreshThread.start()
 
 let port: UInt16 = 9527
 let srv = socket(AF_INET, SOCK_STREAM, 0)

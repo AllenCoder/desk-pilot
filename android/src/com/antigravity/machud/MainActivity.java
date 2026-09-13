@@ -953,6 +953,7 @@ public class MainActivity extends Activity {
     private void startClockAndOrbiting() {
         final SimpleDateFormat screensaverFmt = new SimpleDateFormat("HH:mm", Locale.getDefault());
         final SimpleDateFormat timeFmt = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+        final SimpleDateFormat dateFmt = new SimpleDateFormat("yyyy年M月d日 EEE", Locale.CHINESE);
 
         handler.post(new Runnable() {
             private int secondsCount = 0;
@@ -962,8 +963,11 @@ public class MainActivity extends Activity {
                 Date now = new Date();
                 tvScreensaverClock.setText(screensaverFmt.format(now));
 
-                if (tvClock != null && (statsClient == null || tvClock.getText().toString().isEmpty())) {
+                if (tvClock != null) {
                     tvClock.setText(timeFmt.format(now));
+                }
+                if (tvDate != null && tvDate.getText().toString().isEmpty()) {
+                    tvDate.setText(dateFmt.format(now));
                 }
 
                 secondsCount++;
