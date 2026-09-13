@@ -1,0 +1,123 @@
+name: Release - Automated Build & Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for release (e.g. v1.0.0)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Platform & Build Tools
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager --install "platforms;android-30" "build-tools;30.0.3"
+
+      - name: Build APK via Lightweight Toolchain
+        run: |
+          chmod +x android/build_apk.sh
+          ./android/build_apk.sh
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskPilot-APK
+          path: android/DeskPilot.apk
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS Universal Binaries
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Compile macOS Universal Binaries (arm64 + x86_64)
+        run: |
+          chmod +x mac/build_mac.sh
+          UNIVERSAL=true ./mac/build_mac.sh
+
+      - name: Verify Universal Architectures
+        run: |
+          lipo -info mac/stats_server
+          lipo -info mac/audio_bridge
+
+      - name: Package macOS Distribution
+        run: |
+          mkdir -p dist/deskpilot-mac
+          cp mac/stats_server dist/deskpilot-mac/
+          cp mac/audio_bridge dist/deskpilot-mac/
+          cp mac/run_machud.sh dist/deskpilot-mac/
+          cp mac/com.allencoder.machud.plist dist/deskpilot-mac/
+          cp -r scripts dist/deskpilot-mac/
+          chmod +x dist/deskpilot-mac/*.sh dist/deskpilot-mac/scripts/*.sh
+          tar -czvf DeskPilot-macOS-Universal.tar.gz -C dist deskpilot-mac
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskPilot-macOS-Universal
+          path: DeskPilot-macOS-Universal.tar.gz
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-android, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Android Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: DeskPilot-APK
+          path: release-assets/
+
+      - name: Download macOS Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: DeskPilot-macOS-Universal
+          path: release-assets/
+
+      - name: Generate SHA256 Checksums
+        working-directory: release-assets
+        run: |
+          sha256sum DeskPilot.apk DeskPilot-macOS-Universal.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: DeskPilot ${{ github.event.inputs.tag_name || github.ref_name }}
+          files: |
+            release-assets/DeskPilot.apk
+            release-assets/DeskPilot-macOS-Universal.tar.gz
+            release-assets/SHA256SUMS.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -5,7 +5,9 @@
 **Your Ultimate Mac Desktop Co-Pilot · Ambient Weather Station · Low-Latency Wireless Microphone**
 *(Powered by Reborn Flagship AMOLED Hardware)*
 
-[![macOS](https://img.shields.io/badge/macOS-11.0%2B-black?style=flat-square&logo=apple)](https://apple.com)
+[![CI](https://github.com/AllenCoder/desk-pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/AllenCoder/desk-pilot/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/AllenCoder/desk-pilot?style=flat-square&color=blue)](https://github.com/AllenCoder/desk-pilot/releases)
+[![macOS](https://img.shields.io/badge/macOS-12.0%2B-black?style=flat-square&logo=apple)](https://apple.com)
 [![Android](https://img.shields.io/badge/Android-5.0%2B-green?style=flat-square&logo=android)](https://android.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Swift](https://img.shields.io/badge/Swift-5.0%2B-orange?style=flat-square&logo=swift)](https://swift.org)
