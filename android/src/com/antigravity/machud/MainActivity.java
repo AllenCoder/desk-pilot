@@ -1,10 +1,13 @@
 package com.antigravity.machud;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.hardware.Sensor;
@@ -23,6 +26,7 @@ import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -39,7 +43,8 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final String FALLBACK_LAN_IP = "192.168.3.179";
+    private static final String PREFS_NAME = "deskpilot_prefs";
+    private static final String KEY_SAVED_MAC_IP = "saved_mac_ip";
     private static final int AUDIO_PORT = 9528;
     private static final int PERMISSION_REQ_CODE = 1001;
 
@@ -89,7 +94,7 @@ public class MainActivity extends Activity {
     private TextView tvDrawerLoadDetail, tvDrawerTasksDetail, tvDrawerUptimeDetail;
     private SeekBar sbScreenBrightness;
     private TextView tvBrightnessVal;
-    private TextView btnQuickAod, btnQuickWash, btnQuickNight;
+    private TextView btnQuickAod, btnQuickWash, btnQuickNight, btnConfigHost;
     private GestureDetector dockGestureDetector;
     private ObjectAnimator weatherPulseAnim;
     private String currentUptime = "14天4时35分";
@@ -188,8 +193,11 @@ public class MainActivity extends Activity {
             }
         });
 
+        SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String savedHost = sp.getString(KEY_SAVED_MAC_IP, "");
+
         // 启动具备双通道自愈与自动发现的 Mac 状态客户端
-        statsClient = new StatsClient(FALLBACK_LAN_IP, new StatsClient.Listener() {
+        statsClient = new StatsClient(savedHost, new StatsClient.Listener() {
             @Override
             public void onStatsReceived(StatsClient.MacStats stats, StatsClient.LinkType linkType, String host) {
                 updateMacStats(stats, linkType, host);
@@ -212,6 +220,13 @@ public class MainActivity extends Activity {
             @Override
             public void onMicStateChanged(final boolean active) {
                 setMicrophoneActive(active, false);
+            }
+
+            @Override
+            public void onHostDiscovered(final String ip) {
+                SharedPreferences p = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                p.edit().putString(KEY_SAVED_MAC_IP, ip).apply();
+                Toast.makeText(MainActivity.this, "已自动发现并锁定 Mac 主机: " + ip, Toast.LENGTH_SHORT).show();
             }
         });
         statsClient.start();
@@ -703,6 +718,36 @@ public class MainActivity extends Activity {
             });
         }
 
+        btnConfigHost = findViewById(R.id.btn_config_host);
+        if (btnConfigHost != null) {
+            btnConfigHost.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
+
+        if (tvNetLanIp != null) {
+            tvNetLanIp.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
+        View cardNet = findViewById(R.id.card_net);
+        if (cardNet != null) {
+            cardNet.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
+
+
+
         setupDockGestureDetector();
     }
 
@@ -888,6 +933,77 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void showConnectionSettingsDialog() {
+        closeDrawers();
+        final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String savedIp = sp.getString(KEY_SAVED_MAC_IP, "");
+        if (savedIp.isEmpty() && statsClient != null) {
+            savedIp = statsClient.getFallbackHost();
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+        builder.setTitle("🖥️ Mac 主机连接与配对设置");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 20, 40, 10);
+
+        TextView tvInfo = new TextView(this);
+        String currentMode = "未知";
+        if (statsClient != null) {
+            StatsClient.LinkType link = statsClient.getCurrentLink();
+            if (link == StatsClient.LinkType.USB) {
+                currentMode = "⚡ USB 硬件直连 (127.0.0.1) · 极速低延迟";
+            } else if (link == StatsClient.LinkType.WIFI) {
+                currentMode = "📶 Wi-Fi 局域网 (" + statsClient.getCurrentActiveHost() + ")";
+            } else {
+                currentMode = "⚠️ 寻找/重连主机中...";
+            }
+        }
+        tvInfo.setText("当前通信链路：\n" + currentMode + "\n\n💡 换 Mac / 换手机连接说明：\n1. USB 插线模式：用数据线插在任何一台 Mac 上，自动秒连，无需配置 IP；\n2. Wi-Fi 无线模式：在同一 Wi-Fi 下通常自动广播发现。若路由器禁用 UDP 广播，可在下方填入 Mac 的局域网 IP 或点击自动扫描：");
+        tvInfo.setTextColor(Color.parseColor("#a0b0c0"));
+        tvInfo.setTextSize(11);
+        layout.addView(tvInfo);
+
+        final EditText etIp = new EditText(this);
+        etIp.setHint("输入 Mac 局域网 IP (例如 192.168.1.100)");
+        etIp.setText(savedIp);
+        etIp.setTextColor(Color.WHITE);
+        etIp.setTextSize(13);
+        layout.addView(etIp);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("保存并连接", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String input = etIp.getText().toString().trim();
+                if (!input.isEmpty()) {
+                    sp.edit().putString(KEY_SAVED_MAC_IP, input).apply();
+                    if (statsClient != null) {
+                        statsClient.setFallbackHost(input);
+                    }
+                    Toast.makeText(MainActivity.this, "已保存目标 Mac IP: " + input + "，正在重连...", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNeutralButton("🔍 自动扫描局域网", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (statsClient != null) {
+                    Toast.makeText(MainActivity.this, "正在快速扫描局域网找寻 Mac 主机...", Toast.LENGTH_SHORT).show();
+                    statsClient.scanSubnetForMac();
+                }
+            }
+        });
+
+        builder.setNegativeButton("取消", null);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
     private void setupGestureDetector() {
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
@@ -931,7 +1047,7 @@ public class MainActivity extends Activity {
         if (drawerInspectOverlay != null && drawerInspectOverlay.getVisibility() == View.VISIBLE) {
             return super.dispatchTouchEvent(ev);
         }
-        // 底部 Dock 水平滑动优先检测
+        // 底部 Dock 区域触摸拦截与滑动检测
         if (bottomDockContainer != null && bottomDockContainer.getVisibility() == View.VISIBLE) {
             int[] loc = new int[2];
             bottomDockContainer.getLocationOnScreen(loc);
@@ -942,6 +1058,8 @@ public class MainActivity extends Activity {
                 if (dockGestureDetector != null && dockGestureDetector.onTouchEvent(ev)) {
                     return true;
                 }
+                // 触摸位于底部 Dock 内部：直接分发给 Dock 内子视图 (不要触发全屏双击/洗屏长按)
+                return super.dispatchTouchEvent(ev);
             }
         }
         if (gestureDetector != null) {

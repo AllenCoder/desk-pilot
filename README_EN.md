@@ -154,6 +154,23 @@ adb shell am start -n com.antigravity.machud/.MainActivity
 
 ---
 
+## 🌐 Multi-Device & Network Pairing Guide (Zero-Config / Subnet Scan)
+
+DeskPilot adopts a fully decoupled communication architecture with a 4-tier discovery strategy:
+
+<div align="center">
+<img src="docs/images/connection_dialog.png" alt="Mac Host Connection Settings" width="600"/>
+</div>
+
+| Mode / Scenario | Link Type | Config Required? | Description |
+| :--- | :--- | :---: | :--- |
+| **Scenario A: USB Wired (Recommended)** | Physical Cable | **❌ Zero-Config** | ADB reverse tunnel routes through `127.0.0.1` hardware bus. Plug into any Mac or switch phones instantly with **<1ms latency**, completely IP-free. |
+| **Scenario B: Same Wi-Fi LAN** | UDP Beacon Broadcast | **❌ Zero-Config** | The Mac broadcasts discovery packets on UDP 9529. The client captures and **auto-saves the new Mac IP** for seamless Wi-Fi fallback. |
+| **Scenario C: Restricted LAN Router** | Parallel Subnet Probing | **❌ Zero-Config** | If enterprise Wi-Fi blocks UDP broadcast, the client automatically triggers a 25-thread concurrent scanner on port 9527, auto-pairing within 1.5s. |
+| **Scenario D: Custom Subnet / Manual** | In-App Setting Dialog | **✔️ One-time** | Long-press bottom dock to select **"🌐 Configure Mac Host IP / Auto Scan"**, or tap the **"Traffic Radar"** card to enter target IP directly or trigger manual scan. |
+
+---
+
 ## 💡 Touch & Gesture Guide
 
 | Gesture / Trigger | Hit Area | Action |

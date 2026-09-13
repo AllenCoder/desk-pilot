@@ -9,12 +9,23 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.Inet4Address;
+import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
+import java.net.Socket;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class StatsClient {
     private static final String TAG = "StatsClient";
@@ -29,6 +40,7 @@ public class StatsClient {
         void onStatsReceived(MacStats stats, LinkType linkType, String host);
         void onConnectionFailed(String error);
         void onMicStateChanged(boolean active);
+        void onHostDiscovered(String ip);
     }
 
     public static class ProcessInfo {
@@ -97,16 +109,27 @@ public class StatsClient {
     private Thread beaconReceiverThread;
 
     private volatile String primaryHost = "127.0.0.1";
-    private volatile String fallbackHost = "192.168.3.179";
+    private volatile String fallbackHost = "";
     private volatile int statsPort = 9527;
     private volatile int audioPort = 9528;
     private volatile LinkType currentLink = LinkType.USB;
+    private volatile boolean isScanningSubnet = false;
 
     public StatsClient(String fallbackIp, Listener listener) {
         if (fallbackIp != null && !fallbackIp.isEmpty()) {
             this.fallbackHost = fallbackIp;
         }
         this.listener = listener;
+    }
+
+    public void setFallbackHost(String host) {
+        if (host != null) {
+            this.fallbackHost = host.trim();
+        }
+    }
+
+    public String getFallbackHost() {
+        return fallbackHost;
     }
 
     public String getCurrentActiveHost() {
@@ -123,6 +146,95 @@ public class StatsClient {
 
         startBeaconReceiver();
         startPoller();
+    }
+
+    public void scanSubnetForMac() {
+        if (isScanningSubnet) return;
+        isScanningSubnet = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String localIp = getLocalWifiIp();
+                    if (localIp == null || !localIp.contains(".")) {
+                        isScanningSubnet = false;
+                        return;
+                    }
+                    int lastDot = localIp.lastIndexOf('.');
+                    String prefix = localIp.substring(0, lastDot + 1);
+
+                    ExecutorService pool = Executors.newFixedThreadPool(25);
+                    final AtomicBoolean found = new AtomicBoolean(false);
+
+                    for (int i = 1; i <= 254; i++) {
+                        if (found.get() || !isRunning) break;
+                        final String testIp = prefix + i;
+                        if (testIp.equals(localIp)) continue;
+
+                        pool.submit(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (found.get() || !isRunning) return;
+                                Socket s = null;
+                                try {
+                                    s = new Socket();
+                                    s.connect(new InetSocketAddress(testIp, statsPort), 300);
+                                    OutputStream os = s.getOutputStream();
+                                    os.write("GET /api/stats HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n".getBytes());
+                                    os.flush();
+
+                                    BufferedReader reader = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                                    String line = reader.readLine();
+                                    if (line != null && line.contains("200 OK")) {
+                                        if (found.compareAndSet(false, true)) {
+                                            fallbackHost = testIp;
+                                            mainHandler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    if (listener != null) {
+                                                        listener.onHostDiscovered(testIp);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                } catch (Exception ignored) {
+                                } finally {
+                                    if (s != null) {
+                                        try { s.close(); } catch (Exception ignored) {}
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    pool.shutdown();
+                    pool.awaitTermination(4, TimeUnit.SECONDS);
+                } catch (Exception ignored) {
+                } finally {
+                    isScanningSubnet = false;
+                }
+            }
+        }, "SubnetScanner-Thread").start();
+    }
+
+    public static String getLocalWifiIp() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp()) continue;
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (!addr.isLoopbackAddress() && addr instanceof Inet4Address) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private void startBeaconReceiver() {
@@ -157,11 +269,19 @@ public class StatsClient {
 
                             // 2. 处理服务发现广播
                             if ("machud".equals(json.optString("service"))) {
-                                String ip = json.optString("ip", "");
+                                final String ip = json.optString("ip", "");
                                 if (!ip.isEmpty() && !"localhost".equals(ip) && !"127.0.0.1".equals(ip)) {
                                     fallbackHost = ip;
                                     statsPort = json.optInt("statsPort", 9527);
                                     audioPort = json.optInt("audioPort", 9528);
+                                    mainHandler.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            if (listener != null) {
+                                                listener.onHostDiscovered(ip);
+                                            }
+                                        }
+                                    });
                                 }
                             }
                         } catch (Exception ignored) {}
@@ -183,6 +303,7 @@ public class StatsClient {
             @Override
             public void run() {
                 int consecutiveUsbFails = 0;
+                int consecutiveAllFails = 0;
 
                 while (isRunning) {
                     MacStats stats = null;
@@ -216,6 +337,17 @@ public class StatsClient {
                         if (consecutiveUsbFails >= 5) {
                             consecutiveUsbFails = 0;
                         }
+                    }
+
+                    // 4. 如果两路均无法连接，自动触发网段智能扫描
+                    if (stats == null) {
+                        consecutiveAllFails++;
+                        if (consecutiveAllFails >= 3 && !isScanningSubnet) {
+                            scanSubnetForMac();
+                            consecutiveAllFails = 0;
+                        }
+                    } else {
+                        consecutiveAllFails = 0;
                     }
 
                     currentLink = activeLink;

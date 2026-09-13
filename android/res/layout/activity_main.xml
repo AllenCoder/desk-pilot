@@ -676,6 +676,7 @@
 
             <!-- 卡片 3: 网络通信雷达 (TRAFFIC) -->
             <LinearLayout
+                android:id="@+id/card_net"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1.15"
@@ -782,7 +783,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="IP 192.168.3.179"
+                            android:text="IP 探测中..."
                             android:textColor="#8fa0b0"
                             android:textSize="8sp"
                             android:singleLine="true" />
@@ -1562,6 +1563,7 @@
             android:orientation="vertical"
             android:background="@drawable/bg_drawer_card"
             android:padding="16dp"
+            android:clickable="true"
             android:visibility="gone">
 
             <!-- 抽屉头部 -->
@@ -1782,6 +1784,7 @@
             android:orientation="vertical"
             android:background="@drawable/bg_drawer_card"
             android:padding="16dp"
+            android:clickable="true"
             android:visibility="gone">
 
             <LinearLayout
@@ -1949,6 +1952,7 @@
             android:orientation="vertical"
             android:background="@drawable/bg_drawer_card"
             android:padding="16dp"
+            android:clickable="true"
             android:visibility="gone">
 
             <LinearLayout
@@ -2073,6 +2077,28 @@
                     android:padding="10dp"
                     android:gravity="center"
                     android:layout_marginStart="6dp"
+                    android:clickable="true" />
+            </LinearLayout>
+
+            <!-- 主机通信与网络配置 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <TextView
+                    android:id="@+id/btn_config_host"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🌐 配置 Mac 主机 IP / 自动扫网"
+                    android:textColor="#00f59b"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_button_action"
+                    android:padding="10dp"
+                    android:gravity="center"
                     android:clickable="true" />
             </LinearLayout>
 
