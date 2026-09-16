@@ -45,7 +45,7 @@ public class AlphaPiClient {
         }
     }
 
-    private String host = "127.0.0.1";
+    private String host = "";
     private int port = 8765;
     private String secretPath = "/ctrl-ef691ada9ea6";
     private String authUser = "";
@@ -120,6 +120,15 @@ public class AlphaPiClient {
 
     private void streamWorkerLoop() {
         while (isRunning) {
+            if (host == null || host.trim().isEmpty()) {
+                postStatus(false, "⚠️ 未配置主机 IP，请先点击[通信配置]输入");
+                try {
+                    Thread.sleep(2500);
+                } catch (InterruptedException e) {
+                    break;
+                }
+                continue;
+            }
             HttpURLConnection conn = null;
             BufferedReader reader = null;
             try {

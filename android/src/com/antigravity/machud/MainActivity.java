@@ -1330,20 +1330,8 @@ public class MainActivity extends Activity {
         presetsLayout.setOrientation(LinearLayout.HORIZONTAL);
         presetsLayout.setPadding(0, 10, 0, 15);
 
-        Button btnUsb = new Button(this);
-        btnUsb.setText("⚡ USB 本地模式");
-        btnUsb.setTextSize(11);
-        btnUsb.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                etHost.setText("127.0.0.1");
-                etPort.setText("9527");
-                etPath.setText("/api/stats");
-            }
-        });
-
         Button btnScan = new Button(this);
-        btnScan.setText("🔍 自动扫网发现");
+        btnScan.setText("🔍 局域网扫描发现");
         btnScan.setTextSize(11);
         btnScan.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1355,8 +1343,18 @@ public class MainActivity extends Activity {
             }
         });
 
-        presetsLayout.addView(btnUsb, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        Button btnClear = new Button(this);
+        btnClear.setText("🗑️ 清空输入框");
+        btnClear.setTextSize(11);
+        btnClear.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                etHost.setText("");
+            }
+        });
+
         presetsLayout.addView(btnScan, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        presetsLayout.addView(btnClear, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
         layout.addView(presetsLayout);
 
         TextView tvHostLabel = new TextView(this);
@@ -1365,8 +1363,8 @@ public class MainActivity extends Activity {
         tvHostLabel.setTextSize(11);
         layout.addView(tvHostLabel);
 
-        etHost.setHint("输入 IP 或域名 (如 192.168.1.100)");
-        etHost.setText(customHost.isEmpty() ? "127.0.0.1" : customHost);
+        etHost.setHint("请输入服务器 IP 或域名");
+        etHost.setText(customHost);
         etHost.setTextColor(Color.WHITE);
         etHost.setTextSize(13);
         layout.addView(etHost);
@@ -2152,11 +2150,7 @@ public class MainActivity extends Activity {
     private void initAlphaPiClient() {
         alphaPiClient = new AlphaPiClient();
         SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String savedMacIp = sp.getString(KEY_SAVED_MAC_IP, "");
         String mHost = sp.getString("mcu_host", "");
-        if (mHost.isEmpty()) {
-            mHost = savedMacIp.isEmpty() ? "127.0.0.1" : savedMacIp;
-        }
         int mPort = sp.getInt("mcu_port", 8765);
         String mSecret = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
         String mUser = sp.getString("mcu_user", "");
@@ -2226,9 +2220,6 @@ public class MainActivity extends Activity {
         final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String savedMacIp = sp.getString(KEY_SAVED_MAC_IP, "");
         String currentMcuHost = sp.getString("mcu_host", "");
-        if (currentMcuHost.isEmpty()) {
-            currentMcuHost = savedMacIp.isEmpty() ? "127.0.0.1" : savedMacIp;
-        }
         int currentMcuPort = sp.getInt("mcu_port", 8765);
         String currentMcuSecret = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
         String currentMcuUser = sp.getString("mcu_user", "");
@@ -2258,20 +2249,18 @@ public class MainActivity extends Activity {
         presetsLayout.setOrientation(LinearLayout.HORIZONTAL);
         presetsLayout.setPadding(0, 10, 0, 15);
 
-        Button btnUsb = new Button(this);
-        btnUsb.setText("⚡ USB/本地 (127.0.0.1:8765)");
-        btnUsb.setTextSize(10);
-        btnUsb.setOnClickListener(new View.OnClickListener() {
+        Button btnClear = new Button(this);
+        btnClear.setText("🗑️ 清空地址输入");
+        btnClear.setTextSize(10);
+        btnClear.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                etHost.setText("127.0.0.1");
-                etPort.setText("8765");
-                etSecret.setText("/ctrl-ef691ada9ea6");
+                etHost.setText("");
             }
         });
 
         Button btnMacSync = new Button(this);
-        btnMacSync.setText("📶 沿用 Mac 主机 IP");
+        btnMacSync.setText("📶 沿用已存 Mac 地址");
         btnMacSync.setTextSize(10);
         final String fMacIp = savedMacIp;
         btnMacSync.setOnClickListener(new View.OnClickListener() {
@@ -2279,26 +2268,25 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 if (!fMacIp.isEmpty()) {
                     etHost.setText(fMacIp);
+                } else {
+                    Toast.makeText(MainActivity.this, "暂无已保存的 Mac IP，请手动输入", Toast.LENGTH_SHORT).show();
                 }
-                etPort.setText("8765");
-                etSecret.setText("/ctrl-ef691ada9ea6");
             }
         });
 
-        Button btnCloud = new Button(this);
-        btnCloud.setText("☁️ 云端端口 8000");
-        btnCloud.setTextSize(10);
-        btnCloud.setOnClickListener(new View.OnClickListener() {
+        Button btnCloudPort = new Button(this);
+        btnCloudPort.setText("☁️ 切换云端端口 8000");
+        btnCloudPort.setTextSize(10);
+        btnCloudPort.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 etPort.setText("8000");
-                etSecret.setText("/ctrl-ef691ada9ea6");
             }
         });
 
-        presetsLayout.addView(btnUsb, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        presetsLayout.addView(btnClear, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
         presetsLayout.addView(btnMacSync, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-        presetsLayout.addView(btnCloud, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        presetsLayout.addView(btnCloudPort, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
         layout.addView(presetsLayout);
 
         TextView tvHostL = new TextView(this);
@@ -2306,7 +2294,7 @@ public class MainActivity extends Activity {
         tvHostL.setTextColor(Color.parseColor("#64748b"));
         tvHostL.setTextSize(11);
         layout.addView(tvHostL);
-        etHost.setHint("如 192.168.1.100 或 127.0.0.1");
+        etHost.setHint("请输入单片机上位机 IP 或域名");
         etHost.setText(currentMcuHost);
         etHost.setTextColor(Color.WHITE);
         etHost.setTextSize(13);
