@@ -427,7 +427,7 @@ func refreshData() {
     "network":{"down":\(String(format:"%.0f",dn)),"up":\(String(format:"%.0f",up2)),"downStr":"\(fmtSpeed(dn))","upStr":"\(fmtSpeed(up2))","lanIP":"\(currentLanIP)","pingMs":"\(gPingMs)","totalIn":"\(fmtBytes(net.inn))","totalOut":"\(fmtBytes(net.out))"},
     "disk":{"used":\(String(format:"%.0f",disk.used)),"total":\(String(format:"%.0f",disk.total)),"percent":\(String(format:"%.1f",disk.pct))},
     "mic":{"active":\(micActive)},
-    "version":"v1.1.0",
+    "version":"v1.2.0",
     "uptime":"\(up)","processes":[\(procsJ)]}
     """
     gLock.lock(); gJSON = json; gLock.unlock()

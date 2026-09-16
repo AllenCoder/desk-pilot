@@ -53,16 +53,17 @@ while true; do
         AUDIO_PID=$!
     fi
 
-    # 3. 检查 ADB reverse 规则
-    if adb get-state 2>/dev/null | grep -q "device"; then
-        REV_LIST=$(adb reverse --list 2>/dev/null)
+    # 3. 检查 ADB reverse 规则 (支持多设备自动并行绑定)
+    DEVICES=$(adb devices 2>/dev/null | grep -w "device" | awk '{print $1}')
+    for dev in $DEVICES; do
+        REV_LIST=$(adb -s "$dev" reverse --list 2>/dev/null)
         if ! echo "$REV_LIST" | grep -q "tcp:9527"; then
-            adb reverse tcp:9527 tcp:9527 2>/dev/null || true
+            adb -s "$dev" reverse tcp:9527 tcp:9527 2>/dev/null || true
         fi
         if ! echo "$REV_LIST" | grep -q "tcp:9528"; then
-            adb reverse tcp:9528 tcp:9528 2>/dev/null || true
+            adb -s "$dev" reverse tcp:9528 tcp:9528 2>/dev/null || true
         fi
-    fi
+    done
 
     sleep 3
 done

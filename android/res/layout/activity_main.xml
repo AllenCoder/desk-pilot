@@ -5,7 +5,13 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- 主仪表盘容器 (支持 GPU 微位移防烧屏) -->
+    <!-- 全局双屏翻页容器 (支持左右滑屏与极客动效) -->
+    <ViewFlipper
+        android:id="@+id/screen_flipper"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+    <!-- 主仪表盘容器 (屏 1: 支持 GPU 微位移防烧屏) -->
     <LinearLayout
         android:id="@+id/dashboard_container"
         android:layout_width="match_parent"
@@ -215,6 +221,24 @@
                         android:textSize="7sp"
                         android:layout_marginStart="2dp" />
                 </LinearLayout>
+
+                <!-- 屏 1/2 快速切屏胶囊按钮 -->
+                <TextView
+                    android:id="@+id/btn_switch_to_screen2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="2/2 气象 🌤️ ▶"
+                    android:textColor="#00d2ff"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:background="#0e2233"
+                    android:paddingStart="7dp"
+                    android:paddingEnd="7dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:layout_marginStart="6dp"
+                    android:clickable="true"
+                    android:focusable="true" />
 
             </LinearLayout>
 
@@ -1134,7 +1158,7 @@
                     android:id="@+id/tv_footer_version"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="DESKPILOT v1.1.0 · 60FPS SYNC"
+                    android:text="DESKPILOT v1.2.0 · 60FPS SYNC"
                     android:textColor="#323d47"
                     android:textSize="8sp"
                     android:gravity="center"
@@ -1545,6 +1569,855 @@
         </FrameLayout>
 
     </LinearLayout>
+        <!-- ============================================================ -->
+        <!-- 屏 2：气象全景与穿衣出行智库看板 (专家级 3-Column 黄金布局) -->
+        <!-- ============================================================ -->
+        <LinearLayout
+            android:id="@+id/weather_screen_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- 顶部状态栏 (Top Bar: 彻底解决换行瑕疵，高格调单行排版) -->
+            <LinearLayout
+                android:id="@+id/weather_top_bar"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:layout_marginBottom="6dp">
+
+                <!-- 左侧：主机标签、LIVE 绿灯与 USB 链路指示 (紧凑单行无换行) -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_weather_device_tag"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="MACBOOK"
+                        android:textColor="#d0dbe5"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:background="#161e2e"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp" />
+
+                    <TextView
+                        android:id="@+id/tv_weather_live_dot"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="● LIVE"
+                        android:textColor="#00f59b"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="8dp" />
+
+                    <TextView
+                        android:id="@+id/tv_weather_link_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⚡ USB 直连"
+                        android:textColor="#00f59b"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:background="#0a2a1c"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:layout_marginStart="6dp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!-- 中央：时钟与同步日期 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_weather_clock"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="17:35:00"
+                        android:textColor="#e6edf3"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-condensed" />
+
+                    <TextView
+                        android:id="@+id/tv_weather_date"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2026年9月15日 周二"
+                        android:textColor="#8fa0b0"
+                        android:textSize="9sp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!-- 右侧：真实城市定位、手动刷新与切回屏1胶囊 -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical|end"
+                    android:orientation="horizontal">
+
+                    <!-- 真实定位城市胶囊 -->
+                    <TextView
+                        android:id="@+id/tv_weather_city"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="📍 杭州市"
+                        android:textColor="#00d2ff"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:background="#0e2233"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="3dp"
+                        android:paddingBottom="3dp"
+                        android:layout_marginEnd="6dp" />
+
+                    <!-- 手动刷新按钮 -->
+                    <TextView
+                        android:id="@+id/btn_weather_refresh"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🔄 刷新"
+                        android:textColor="#8fa0b0"
+                        android:textSize="9sp"
+                        android:background="@drawable/bg_button_action"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="3dp"
+                        android:paddingBottom="3dp"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                    <!-- 屏 1 切换胶囊 -->
+                    <TextView
+                        android:id="@+id/btn_switch_to_screen1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="◀ 1/2 仪表盘"
+                        android:textColor="#00f59b"
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:background="#0a2a1c"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:clickable="true"
+                        android:focusable="true" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 核心数据区：3 等分黄金三栏布局 (今日全景 | 明日预报 | 穿衣决策) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <!-- ==================== 栏 1：今日全景实时气象 (带原生粒子动效) ==================== -->
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card"
+                    android:layout_marginEnd="3dp">
+
+                    <!-- 原生 Canvas 天气粒子物理动效引擎层 -->
+                    <com.antigravity.machud.WeatherParticleView
+                        android:id="@+id/weather_particle_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                    <!-- 内容覆盖层 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <!-- 顶栏：标牌与降水概率 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="TODAY · 今日实时"
+                                android:textColor="#00d2ff"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:id="@+id/tv_weather_rain_prob_badge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="☀️ 降水 0%"
+                                android:textColor="#00f59b"
+                                android:textSize="9sp"
+                                android:background="#0a2a1c"
+                                android:paddingStart="6dp"
+                                android:paddingEnd="6dp"
+                                android:paddingTop="2dp"
+                                android:paddingBottom="2dp" />
+                        </LinearLayout>
+
+                        <!-- 中部：大数字气温与天气现象 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="10dp">
+
+                            <TextView
+                                android:id="@+id/tv_weather_big_temp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="29°"
+                                android:textColor="#ffffff"
+                                android:textSize="46sp"
+                                android:textStyle="bold"
+                                android:fontFamily="sans-serif-condensed" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_marginStart="14dp">
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical">
+
+                                    <TextView
+                                        android:id="@+id/tv_weather_icon"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="🌤️"
+                                        android:textSize="24sp" />
+
+                                    <TextView
+                                        android:id="@+id/tv_weather_desc"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="局部多云"
+                                        android:textColor="#00f59b"
+                                        android:textSize="14sp"
+                                        android:singleLine="true"
+                                        android:textStyle="bold"
+                                        android:layout_marginStart="6dp" />
+                                </LinearLayout>
+
+                                <TextView
+                                    android:id="@+id/tv_weather_feels_like"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="体感温度 28.5°C · 温和微风"
+                                    android:textColor="#8fa0b0"
+                                    android:textSize="10sp"
+                                    android:layout_marginTop="3dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- 今日极值与指标行 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="12dp"
+                            android:background="#101824"
+                            android:padding="8dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:gravity="center">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="今日温幅"
+                                    android:textColor="#506575"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_weather_today_minmax"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="21~30°C"
+                                    android:textColor="#d0dbe5"
+                                    android:textSize="10sp"
+                                    android:singleLine="true"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:gravity="center">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="实时风力"
+                                    android:textColor="#506575"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_weather_wind"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="2级 · 9km/h"
+                                    android:textColor="#00d2ff"
+                                    android:textSize="9.5sp"
+                                    android:singleLine="true"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:gravity="center">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="降水概率"
+                                    android:textColor="#506575"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_weather_rain_prob"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0%"
+                                    android:textColor="#00f59b"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_horizontal"
+                            android:text="CANVAS 动态粒子物理引擎"
+                            android:textColor="#304555"
+                            android:textSize="8sp" />
+                    </LinearLayout>
+                </FrameLayout>
+
+                <!-- ==================== 栏 2：明日天气精准预报 (用户特别关注) ==================== -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card"
+                    android:padding="12dp"
+                    android:layout_marginStart="3dp"
+                    android:layout_marginEnd="3dp">
+
+                    <!-- 顶栏：标牌与降水概率 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="TOMORROW · 明日预报"
+                            android:textColor="#ffaa00"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1" />
+
+                        <TextView
+                            android:id="@+id/tv_tomorrow_rain_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="☀️ 降水 0%"
+                            android:textColor="#00d2ff"
+                            android:textSize="9sp"
+                            android:background="#0e2233"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="6dp"
+                            android:paddingTop="2dp"
+                            android:paddingBottom="2dp" />
+                    </LinearLayout>
+
+                    <!-- 中部：明日预报温度与天气 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="10dp">
+
+                        <TextView
+                            android:id="@+id/tv_tomorrow_big_temp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="31°"
+                            android:textColor="#ffffff"
+                            android:textSize="46sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-condensed" />
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginStart="14dp">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_tomorrow_icon"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="☀️"
+                                    android:textSize="24sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_tomorrow_desc"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="晴朗少云"
+                                    android:textColor="#ffaa00"
+                                    android:textSize="14sp"
+                                    android:singleLine="true"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="6dp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tv_tomorrow_contrast"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="气温基本平稳 · 比今天微升 0.5°C"
+                                android:textColor="#00f59b"
+                                android:textSize="10sp"
+                                android:layout_marginTop="3dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 明日详细指标行 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="12dp"
+                        android:background="#101824"
+                        android:padding="8dp">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="明日温幅"
+                                android:textColor="#506575"
+                                android:textSize="9sp" />
+
+                            <TextView
+                                android:id="@+id/tv_tomorrow_minmax"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="20~31°C"
+                                android:textColor="#d0dbe5"
+                                android:textSize="10sp"
+                                android:singleLine="true"
+                                android:textStyle="bold"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="昼夜温差"
+                                android:textColor="#506575"
+                                android:textSize="9sp" />
+
+                            <TextView
+                                android:id="@+id/tv_tomorrow_temp_diff"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="温差 11°C"
+                                android:textColor="#ffaa00"
+                                android:textSize="10sp"
+                                android:singleLine="true"
+                                android:textStyle="bold"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- 明日出行特别提醒 -->
+                    <TextView
+                        android:id="@+id/tv_tomorrow_advice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="短袖出行 · 紫外线较强注意防晒"
+                        android:textColor="#8fa0b0"
+                        android:textSize="10sp"
+                        android:background="#0c1420"
+                        android:padding="6dp"
+                        android:layout_marginTop="8dp" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:text="双日全景趋势深度对比"
+                        android:textColor="#304555"
+                        android:textSize="8sp" />
+                </LinearLayout>
+
+                <!-- ==================== 栏 3：穿衣决策智库与生活指数矩阵 ==================== -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="3dp">
+
+                    <!-- 今日穿衣建议卡片 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/bg_card"
+                        android:padding="10dp"
+                        android:layout_marginBottom="4dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🧥 今日穿衣智库"
+                                android:textColor="#ffaa00"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:layout_width="0dp"
+                                android:layout_height="1dp"
+                                android:layout_weight="1" />
+
+                            <TextView
+                                android:id="@+id/tv_clothing_warning_tag"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="温差适中"
+                                android:textColor="#00f59b"
+                                android:textSize="9sp"
+                                android:background="#0a2a1c"
+                                android:paddingStart="5dp"
+                                android:paddingEnd="5dp"
+                                android:paddingTop="2dp"
+                                android:paddingBottom="2dp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tv_clothing_main"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="透气短袖 · 纯棉T恤搭配薄长裤"
+                            android:textColor="#ffffff"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:layout_marginTop="4dp" />
+
+                        <TextView
+                            android:id="@+id/tv_clothing_sub"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="气温温热，午间注意防晒；室内空调房备轻薄开衫。"
+                            android:textColor="#8fa0b0"
+                            android:textSize="10sp"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+
+                    <!-- 4大生活决策指数 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:background="@drawable/bg_card"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🚦 出行生活决策矩阵"
+                            android:textColor="#00d2ff"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="6dp">
+
+                            <!-- 带伞 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:background="#121a24"
+                                android:padding="6dp"
+                                android:gravity="center_vertical"
+                                android:layout_marginEnd="3dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🌂 带伞指数"
+                                    android:textColor="#607585"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_index_umbrella"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="无需带伞 (0%)"
+                                    android:textColor="#00f59b"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+
+                            <!-- 运动 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:background="#121a24"
+                                android:padding="6dp"
+                                android:gravity="center_vertical"
+                                android:layout_marginStart="3dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🏃 运动指数"
+                                    android:textColor="#607585"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_index_sport"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="极佳适宜"
+                                    android:textColor="#00d2ff"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="0dp"
+                            android:layout_weight="1"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="4dp">
+
+                            <!-- 洗车 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:background="#121a24"
+                                android:padding="6dp"
+                                android:gravity="center_vertical"
+                                android:layout_marginEnd="3dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🚗 洗车指数"
+                                    android:textColor="#607585"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_index_carwash"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="适宜洗车"
+                                    android:textColor="#00f59b"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+
+                            <!-- 感冒 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:background="#121a24"
+                                android:padding="6dp"
+                                android:gravity="center_vertical"
+                                android:layout_marginStart="3dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🤧 感冒指数"
+                                    android:textColor="#607585"
+                                    android:textSize="9sp" />
+
+                                <TextView
+                                    android:id="@+id/tv_index_cold"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="少发"
+                                    android:textColor="#00f59b"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- 底部状态栏 (Bottom Dock) -->
+            <LinearLayout
+                android:id="@+id/weather_bottom_bar"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp">
+
+                <!-- 室内环境气象站 (读取 Note 3 物理传感器) -->
+                <TextView
+                    android:id="@+id/tv_weather_indoor_sensor"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🌡️ Note 3 工位环境: 25.4°C · 74% RH · 1014.8 hPa (Bosch BMP180 真实物理传感器)"
+                    android:textColor="#8fa0b0"
+                    android:textSize="10sp" />
+
+                <!-- 双屏滑动指示器 (支持点击直切屏1) -->
+                <TextView
+                    android:id="@+id/tv_weather_page_indicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="屏 1 📊 仪表盘  ○ ●  屏 2 🌤️ 气象智库"
+                    android:textColor="#00f59b"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="#0a2a1c"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ViewFlipper>
+
 
     <!-- 🌟 半透明全屏下钻抽屉浮层 (Tap-to-Inspect Drawer) -->
     <FrameLayout

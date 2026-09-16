@@ -97,14 +97,15 @@ cd - >/dev/null
 echo "[5/6] ZipAligning APK package..."
 "$BUILD_TOOLS/zipalign" -f 4 "$OUT_DIR/unaligned.apk" "$OUT_DIR/aligned.apk"
 
-echo "[6/6] Signing APK with debug keystore..."
-DEBUG_KEYSTORE="$APP_DIR/debug.keystore"
-if [ ! -f "$DEBUG_KEYSTORE" ]; then
-  "$KEYTOOL_BIN" -genkeypair -validity 10000 -dname "CN=MacHUD,O=Antigravity,C=US" \
-    -keystore "$DEBUG_KEYSTORE" -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048
+echo "[6/6] Signing APK with permanent release keystore..."
+RELEASE_KEYSTORE="$APP_DIR/deskpilot_release.keystore"
+if [ ! -f "$RELEASE_KEYSTORE" ]; then
+  echo "Generating permanent release keystore..."
+  "$KEYTOOL_BIN" -genkeypair -validity 36500 -dname "CN=DeskPilot,OU=Engineering,O=AllenCoder,L=Hangzhou,ST=Zhejiang,C=CN" \
+    -keystore "$RELEASE_KEYSTORE" -storepass deskpilot123 -keypass deskpilot123 -alias deskpilot -keyalg RSA -keysize 2048
 fi
 
-"$BUILD_TOOLS/apksigner" sign --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --key-pass pass:android \
+"$BUILD_TOOLS/apksigner" sign --ks "$RELEASE_KEYSTORE" --ks-pass pass:deskpilot123 --key-pass pass:deskpilot123 \
   --out "$APP_DIR/DeskPilot.apk" "$OUT_DIR/aligned.apk"
 
 cp "$APP_DIR/DeskPilot.apk" "$APP_DIR/MacHUD.apk"

@@ -33,6 +33,7 @@ public class StatsClient {
     public enum LinkType {
         USB,
         WIFI,
+        CLOUD,
         DISCONNECTED
     }
 
@@ -115,11 +116,36 @@ public class StatsClient {
     private volatile LinkType currentLink = LinkType.USB;
     private volatile boolean isScanningSubnet = false;
 
+    // 自定义/云端主机配置 (支持 Google 云服务器与自定义端口路径)
+    private volatile String customHost = "";
+    private volatile int customPort = 9527;
+    private volatile String customPath = "/api/stats";
+
     public StatsClient(String fallbackIp, Listener listener) {
         if (fallbackIp != null && !fallbackIp.isEmpty()) {
             this.fallbackHost = fallbackIp;
         }
         this.listener = listener;
+    }
+
+    public void setCustomServer(String host, int port, String path) {
+        this.customHost = (host != null) ? host.trim() : "";
+        if (port > 0) this.customPort = port;
+        if (path != null && !path.trim().isEmpty()) {
+            this.customPath = path.trim();
+        }
+    }
+
+    public String getCustomHost() {
+        return customHost;
+    }
+
+    public int getCustomPort() {
+        return customPort;
+    }
+
+    public String getCustomPath() {
+        return customPath;
     }
 
     public void setFallbackHost(String host) {
@@ -133,6 +159,9 @@ public class StatsClient {
     }
 
     public String getCurrentActiveHost() {
+        if (customHost != null && !customHost.isEmpty()) {
+            return customHost + ":" + customPort;
+        }
         return (currentLink == LinkType.USB) ? primaryHost : fallbackHost;
     }
 
@@ -271,17 +300,20 @@ public class StatsClient {
                             if ("machud".equals(json.optString("service"))) {
                                 final String ip = json.optString("ip", "");
                                 if (!ip.isEmpty() && !"localhost".equals(ip) && !"127.0.0.1".equals(ip)) {
+                                    boolean changed = !ip.equals(fallbackHost);
                                     fallbackHost = ip;
                                     statsPort = json.optInt("statsPort", 9527);
                                     audioPort = json.optInt("audioPort", 9528);
-                                    mainHandler.post(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            if (listener != null) {
-                                                listener.onHostDiscovered(ip);
+                                    if (changed) {
+                                        mainHandler.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                if (listener != null) {
+                                                    listener.onHostDiscovered(ip);
+                                                }
                                             }
-                                        }
-                                    });
+                                        });
+                                    }
                                 }
                             }
                         } catch (Exception ignored) {}
@@ -310,15 +342,33 @@ public class StatsClient {
                     LinkType activeLink = LinkType.DISCONNECTED;
                     String activeHost = primaryHost;
 
-                    // 1. 尝试 USB 直连 (127.0.0.1)
-                    if (consecutiveUsbFails < 2) {
+                    // 0. 若配置了自定义主机，优先使用自定义配置
+                    if (customHost != null && !customHost.isEmpty()) {
                         try {
-                            stats = fetchFromHost(primaryHost, statsPort, 1000);
-                            activeLink = LinkType.USB;
-                            activeHost = primaryHost;
-                            consecutiveUsbFails = 0;
-                        } catch (Exception e) {
-                            consecutiveUsbFails++;
+                            String urlStr;
+                            if (customHost.startsWith("http://") || customHost.startsWith("https://")) {
+                                urlStr = customHost;
+                            } else {
+                                String path = customPath.startsWith("/") ? customPath : ("/" + customPath);
+                                urlStr = "http://" + customHost + ":" + customPort + path;
+                            }
+                            stats = fetchFromUrl(urlStr, null, 2000);
+                            activeLink = LinkType.WIFI;
+                            activeHost = customHost;
+                        } catch (Exception ignored) {}
+                    }
+
+                    // 1. 尝试 USB 直连 (127.0.0.1)
+                    if (stats == null && (customHost == null || customHost.isEmpty() || customHost.equals("127.0.0.1"))) {
+                        if (consecutiveUsbFails < 2) {
+                            try {
+                                stats = fetchFromHost(primaryHost, statsPort, 1000);
+                                activeLink = LinkType.USB;
+                                activeHost = primaryHost;
+                                consecutiveUsbFails = 0;
+                            } catch (Exception e) {
+                                consecutiveUsbFails++;
+                            }
                         }
                     }
 
@@ -332,7 +382,7 @@ public class StatsClient {
                     }
 
                     // 3. 如果通过 Wi-Fi 成功，但累计 USB 失败，则每 5 次轮询静默探活一次 USB 是否恢复
-                    if (stats != null && activeLink == LinkType.WIFI) {
+                    if (stats != null && activeLink == LinkType.WIFI && (customHost == null || customHost.isEmpty())) {
                         consecutiveUsbFails++;
                         if (consecutiveUsbFails >= 5) {
                             consecutiveUsbFails = 0;
@@ -390,11 +440,18 @@ public class StatsClient {
     }
 
     private MacStats fetchFromHost(String host, int port, int timeoutMs) throws Exception {
-        URL url = new URL("http://" + host + ":" + port + "/api/stats");
+        return fetchFromUrl("http://" + host + ":" + port + "/api/stats", null, timeoutMs);
+    }
+
+    private MacStats fetchFromUrl(String urlStr, String authHeader, int timeoutMs) throws Exception {
+        URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setConnectTimeout(timeoutMs);
         conn.setReadTimeout(timeoutMs);
+        if (authHeader != null && !authHeader.isEmpty()) {
+            conn.setRequestProperty("Authorization", authHeader);
+        }
 
         int code = conn.getResponseCode();
         if (code != 200) {
@@ -412,6 +469,13 @@ public class StatsClient {
         conn.disconnect();
 
         JSONObject json = new JSONObject(sb.toString());
+        if (json.has("mac") && json.optJSONObject("mac") != null) {
+            json = json.getJSONObject("mac");
+        }
+        return parseStatsJson(json);
+    }
+
+    private MacStats parseStatsJson(JSONObject json) {
         MacStats stats = new MacStats();
 
         stats.macTime = json.optString("time", "");

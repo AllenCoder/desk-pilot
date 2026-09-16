@@ -26,6 +26,7 @@ import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -50,6 +51,29 @@ public class MainActivity extends Activity {
 
     private LinearLayout dashboardContainer;
     private View screensaverView;
+
+    // 双屏管理与左右滑屏
+    private ViewFlipper screenFlipper;
+    private int currentScreenIndex = 0; // 0: 仪表盘, 1: 气象智库
+    private View btnSwitchToScreen2;
+    private View btnSwitchToScreen1;
+    private TextView tvWeatherPageIndicator;
+
+    // 屏 2: 气象与穿衣智库组件
+    private WeatherParticleView weatherParticleView;
+    private TextView tvWeatherDeviceTag, tvWeatherLiveDot, tvWeatherLinkBadge;
+    private TextView tvWeatherClock, tvWeatherDate;
+    private TextView tvWeatherCity, tvWeatherRainProbBadge, tvWeatherBigTemp, tvWeatherIcon, tvWeatherDesc, tvWeatherFeelsLike;
+    private TextView tvWeatherTodayMinMax, tvWeatherWind, tvWeatherRainProb;
+    private TextView tvClothingWarningTag, tvClothingMain, tvClothingSub;
+    private TextView tvIndexUmbrella, tvIndexSport, tvIndexCarWash, tvIndexCold;
+    private TextView tvTomorrowRainBadge, tvTomorrowContrast;
+    private TextView tvTomorrowBigTemp, tvTomorrowIcon, tvTomorrowDesc, tvTomorrowMinMax, tvTomorrowTempDiff, tvTomorrowAdvice;
+    private TextView tvWeatherIndoorSensor;
+    private View btnWeatherRefresh;
+
+    private WeatherService weatherService;
+    private WeatherService.WeatherData currentWeatherData;
 
     // 顶部状态栏
     private TextView tvUptime, tvClock, tvDate;
@@ -225,27 +249,54 @@ public class MainActivity extends Activity {
             @Override
             public void onHostDiscovered(final String ip) {
                 SharedPreferences p = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                p.edit().putString(KEY_SAVED_MAC_IP, ip).apply();
-                Toast.makeText(MainActivity.this, "已自动发现并锁定 Mac 主机: " + ip, Toast.LENGTH_SHORT).show();
+                String oldIp = p.getString(KEY_SAVED_MAC_IP, "");
+                if (!ip.equals(oldIp)) {
+                    p.edit().putString(KEY_SAVED_MAC_IP, ip).apply();
+                    Toast.makeText(MainActivity.this, "已自动发现并锁定 Mac 主机: " + ip, Toast.LENGTH_SHORT).show();
+                }
             }
         });
+        String customHost = sp.getString("custom_host", "");
+        int customPort = sp.getInt("custom_port", 9527);
+        String customPath = sp.getString("custom_path", "/api/stats");
+        if (!customHost.isEmpty()) {
+            statsClient.setCustomServer(customHost, customPort, customPath);
+        }
         statsClient.start();
 
         registerBatteryMonitor();
         initSensors();
+
+        // 初始化全景气象与穿衣生活智库服务
+        weatherService = new WeatherService(this);
+        weatherService.setListener(new WeatherService.OnWeatherUpdatedListener() {
+            @Override
+            public void onWeatherUpdated(WeatherService.WeatherData data) {
+                updateWeatherScreenViews(data);
+            }
+        });
+        weatherService.loadCachedOrFetch();
     }
+
+
 
     @Override
     protected void onResume() {
         super.onResume();
         applyImmersiveSticky();
         registerSensors();
+        if (currentScreenIndex == 1 && weatherParticleView != null) {
+            weatherParticleView.startAnimation();
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         unregisterSensors();
+        if (weatherParticleView != null) {
+            weatherParticleView.stopAnimation();
+        }
     }
 
     private void initSensors() {
@@ -267,6 +318,7 @@ public class MainActivity extends Activity {
                         if (tvSensorPressure != null) {
                             tvSensorPressure.setText(String.format(Locale.getDefault(), "BOSCH %.1f hPa", pressure));
                         }
+                        updateIndoorSensorText();
                         if (tvSensorAltitude != null) {
                             float alt = SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, pressure);
                             tvSensorAltitude.setText(String.format(Locale.getDefault(), "海拔 ~%.0fm", alt));
@@ -435,10 +487,129 @@ public class MainActivity extends Activity {
     private void initViews() {
         dashboardContainer = findViewById(R.id.dashboard_container);
         screensaverView = findViewById(R.id.screensaver_view);
+        screenFlipper = findViewById(R.id.screen_flipper);
+        btnSwitchToScreen2 = findViewById(R.id.btn_switch_to_screen2);
+        if (btnSwitchToScreen2 != null) {
+            btnSwitchToScreen2.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showWeatherScreen();
+                }
+            });
+        }
+
+        // 屏 2: 气象全景与穿衣智库组件绑定
+        weatherParticleView = findViewById(R.id.weather_particle_view);
+        tvWeatherDeviceTag = findViewById(R.id.tv_weather_device_tag);
+        tvWeatherLiveDot = findViewById(R.id.tv_weather_live_dot);
+        tvWeatherLinkBadge = findViewById(R.id.tv_weather_link_badge);
+        tvWeatherClock = findViewById(R.id.tv_weather_clock);
+        tvWeatherDate = findViewById(R.id.tv_weather_date);
+        btnSwitchToScreen1 = findViewById(R.id.btn_switch_to_screen1);
+        btnWeatherRefresh = findViewById(R.id.btn_weather_refresh);
+
+        tvWeatherCity = findViewById(R.id.tv_weather_city);
+        if (tvWeatherCity != null) {
+            tvWeatherCity.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showWeatherCityDialog();
+                }
+            });
+        }
+        if (tvWeatherDeviceTag != null) {
+            tvWeatherDeviceTag.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
+        if (tvWeatherLinkBadge != null) {
+            tvWeatherLinkBadge.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
+        tvWeatherRainProbBadge = findViewById(R.id.tv_weather_rain_prob_badge);
+        tvWeatherBigTemp = findViewById(R.id.tv_weather_big_temp);
+        tvWeatherIcon = findViewById(R.id.tv_weather_icon);
+        tvWeatherDesc = findViewById(R.id.tv_weather_desc);
+        tvWeatherFeelsLike = findViewById(R.id.tv_weather_feels_like);
+        tvWeatherTodayMinMax = findViewById(R.id.tv_weather_today_minmax);
+        tvWeatherWind = findViewById(R.id.tv_weather_wind);
+        tvWeatherRainProb = findViewById(R.id.tv_weather_rain_prob);
+
+        tvClothingWarningTag = findViewById(R.id.tv_clothing_warning_tag);
+        tvClothingMain = findViewById(R.id.tv_clothing_main);
+        tvClothingSub = findViewById(R.id.tv_clothing_sub);
+        tvIndexUmbrella = findViewById(R.id.tv_index_umbrella);
+        tvIndexSport = findViewById(R.id.tv_index_sport);
+        tvIndexCarWash = findViewById(R.id.tv_index_carwash);
+        tvIndexCold = findViewById(R.id.tv_index_cold);
+
+        tvTomorrowRainBadge = findViewById(R.id.tv_tomorrow_rain_badge);
+        tvTomorrowContrast = findViewById(R.id.tv_tomorrow_contrast);
+        tvTomorrowBigTemp = findViewById(R.id.tv_tomorrow_big_temp);
+        tvTomorrowIcon = findViewById(R.id.tv_tomorrow_icon);
+        tvTomorrowDesc = findViewById(R.id.tv_tomorrow_desc);
+        tvTomorrowMinMax = findViewById(R.id.tv_tomorrow_minmax);
+        tvTomorrowTempDiff = findViewById(R.id.tv_tomorrow_temp_diff);
+        tvTomorrowAdvice = findViewById(R.id.tv_tomorrow_advice);
+        tvWeatherIndoorSensor = findViewById(R.id.tv_weather_indoor_sensor);
+        tvWeatherPageIndicator = findViewById(R.id.tv_weather_page_indicator);
+        weatherParticleView = findViewById(R.id.weather_particle_view);
+
+        if (btnSwitchToScreen1 != null) {
+            btnSwitchToScreen1.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showDashboardScreen();
+                }
+            });
+        }
+        if (tvWeatherPageIndicator != null) {
+            tvWeatherPageIndicator.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showDashboardScreen();
+                }
+            });
+        }
+        if (btnWeatherRefresh != null) {
+            btnWeatherRefresh.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (weatherService != null) {
+                        weatherService.fetchWeatherAsync(true);
+                        Toast.makeText(MainActivity.this, "🔄 正在同步最新全景气象与穿衣智库...", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
 
         // Topbar
         tvLiveDot = findViewById(R.id.tv_live_dot);
         tvLinkBadge = findViewById(R.id.tv_link_badge);
+        if (tvLinkBadge != null) {
+            tvLinkBadge.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
+        View vDeviceTag = findViewById(R.id.tv_device_tag);
+        if (vDeviceTag != null) {
+            vDeviceTag.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showConnectionSettingsDialog();
+                }
+            });
+        }
         tvMacBattBadge = findViewById(R.id.tv_mac_batt_badge);
         tvUptime = findViewById(R.id.tv_uptime);
         tvClock = findViewById(R.id.tv_clock);
@@ -937,12 +1108,16 @@ public class MainActivity extends Activity {
         closeDrawers();
         final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String savedIp = sp.getString(KEY_SAVED_MAC_IP, "");
-        if (savedIp.isEmpty() && statsClient != null) {
-            savedIp = statsClient.getFallbackHost();
+        String customHost = sp.getString("custom_host", "");
+        int customPort = sp.getInt("custom_port", 9527);
+        String customPath = sp.getString("custom_path", "/api/stats");
+
+        if (customHost.isEmpty() && !savedIp.isEmpty()) {
+            customHost = savedIp;
         }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-        builder.setTitle("🖥️ DeskPilot v1.1.0 · 连接与配对设置");
+        builder.setTitle("🖥️ DeskPilot · 服务器连接与网络配置");
 
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -953,44 +1128,47 @@ public class MainActivity extends Activity {
         if (statsClient != null) {
             StatsClient.LinkType link = statsClient.getCurrentLink();
             if (link == StatsClient.LinkType.USB) {
-                currentMode = "⚡ USB 硬件直连 (127.0.0.1) · 极速低延迟";
+                currentMode = "⚡ USB 硬件直连 (127.0.0.1:9527)";
+            } else if (link == StatsClient.LinkType.CLOUD) {
+                currentMode = "☁️ Google 云端直连 (" + statsClient.getCurrentActiveHost() + ")";
             } else if (link == StatsClient.LinkType.WIFI) {
                 currentMode = "📶 Wi-Fi 局域网 (" + statsClient.getCurrentActiveHost() + ")";
             } else {
                 currentMode = "⚠️ 寻找/重连主机中...";
             }
         }
-        tvInfo.setText("当前通信链路：\n" + currentMode + "\n\n💡 换 Mac / 换手机连接说明：\n1. USB 插线模式：用数据线插在任何一台 Mac 上，自动秒连，无需配置 IP；\n2. Wi-Fi 无线模式：在同一 Wi-Fi 下通常自动广播发现。若路由器禁用 UDP 广播，可在下方填入 Mac 的局域网 IP 或点击自动扫描：");
+        tvInfo.setText("当前通信链路：" + currentMode + "\n\n💡 快捷切换预设链路：");
         tvInfo.setTextColor(Color.parseColor("#a0b0c0"));
         tvInfo.setTextSize(11);
         layout.addView(tvInfo);
 
-        final EditText etIp = new EditText(this);
-        etIp.setHint("输入 Mac 局域网 IP (例如 192.168.1.100)");
-        etIp.setText(savedIp);
-        etIp.setTextColor(Color.WHITE);
-        etIp.setTextSize(13);
-        layout.addView(etIp);
+        final EditText etHost = new EditText(this);
+        final EditText etPort = new EditText(this);
+        final EditText etPath = new EditText(this);
 
-        builder.setView(layout);
+        // 预设快捷按钮横向排布
+        LinearLayout presetsLayout = new LinearLayout(this);
+        presetsLayout.setOrientation(LinearLayout.HORIZONTAL);
+        presetsLayout.setPadding(0, 10, 0, 15);
 
-        builder.setPositiveButton("保存并连接", new DialogInterface.OnClickListener() {
+        Button btnUsb = new Button(this);
+        btnUsb.setText("⚡ USB 本地模式");
+        btnUsb.setTextSize(11);
+        btnUsb.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(DialogInterface dialog, int which) {
-                String input = etIp.getText().toString().trim();
-                if (!input.isEmpty()) {
-                    sp.edit().putString(KEY_SAVED_MAC_IP, input).apply();
-                    if (statsClient != null) {
-                        statsClient.setFallbackHost(input);
-                    }
-                    Toast.makeText(MainActivity.this, "已保存目标 Mac IP: " + input + "，正在重连...", Toast.LENGTH_SHORT).show();
-                }
+            public void onClick(View v) {
+                etHost.setText("127.0.0.1");
+                etPort.setText("9527");
+                etPath.setText("/api/stats");
             }
         });
 
-        builder.setNeutralButton("🔍 自动扫描局域网", new DialogInterface.OnClickListener() {
+        Button btnScan = new Button(this);
+        btnScan.setText("🔍 自动扫网发现");
+        btnScan.setTextSize(11);
+        btnScan.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(DialogInterface dialog, int which) {
+            public void onClick(View v) {
                 if (statsClient != null) {
                     Toast.makeText(MainActivity.this, "正在快速扫描局域网找寻 Mac 主机...", Toast.LENGTH_SHORT).show();
                     statsClient.scanSubnetForMac();
@@ -998,8 +1176,146 @@ public class MainActivity extends Activity {
             }
         });
 
+        presetsLayout.addView(btnUsb, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        presetsLayout.addView(btnScan, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        layout.addView(presetsLayout);
+
+        TextView tvHostLabel = new TextView(this);
+        tvHostLabel.setText("主机地址 / IP / 域名 (可输入)：");
+        tvHostLabel.setTextColor(Color.parseColor("#8b949e"));
+        tvHostLabel.setTextSize(11);
+        layout.addView(tvHostLabel);
+
+        etHost.setHint("输入 IP 或域名 (如 192.168.1.100)");
+        etHost.setText(customHost.isEmpty() ? "127.0.0.1" : customHost);
+        etHost.setTextColor(Color.WHITE);
+        etHost.setTextSize(13);
+        layout.addView(etHost);
+
+        TextView tvPortLabel = new TextView(this);
+        tvPortLabel.setText("端口号 Port (默认 9527)：");
+        tvPortLabel.setTextColor(Color.parseColor("#8b949e"));
+        tvPortLabel.setTextSize(11);
+        layout.addView(tvPortLabel);
+
+        etPort.setHint("端口号 (默认 9527)");
+        etPort.setText(String.valueOf(customPort > 0 ? customPort : 9527));
+        etPort.setTextColor(Color.WHITE);
+        etPort.setTextSize(13);
+        etPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        layout.addView(etPort);
+
+        TextView tvPathLabel = new TextView(this);
+        tvPathLabel.setText("API 路径 (默认 /api/stats)：");
+        tvPathLabel.setTextColor(Color.parseColor("#8b949e"));
+        tvPathLabel.setTextSize(11);
+        layout.addView(tvPathLabel);
+
+        etPath.setHint("如 /api/stats");
+        etPath.setText(customPath.isEmpty() ? "/api/stats" : customPath);
+        etPath.setTextColor(Color.WHITE);
+        etPath.setTextSize(13);
+        layout.addView(etPath);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("保存并立即连接", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String hostInput = etHost.getText().toString().trim();
+                String portInput = etPort.getText().toString().trim();
+                String pathInput = etPath.getText().toString().trim();
+                int port = 9527;
+                try {
+                    port = Integer.parseInt(portInput);
+                } catch (Exception ignored) {}
+                if (pathInput.isEmpty()) pathInput = "/api/stats";
+
+                sp.edit()
+                    .putString("custom_host", hostInput)
+                    .putInt("custom_port", port)
+                    .putString("custom_path", pathInput)
+                    .putString(KEY_SAVED_MAC_IP, hostInput)
+                    .apply();
+
+                if (statsClient != null) {
+                    statsClient.setCustomServer(hostInput, port, pathInput);
+                    statsClient.setFallbackHost(hostInput);
+                }
+                Toast.makeText(MainActivity.this, "已保存目标服务器: " + hostInput + ":" + port + pathInput + "，正在连接...", Toast.LENGTH_SHORT).show();
+            }
+        });
+
         builder.setNegativeButton("取消", null);
 
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void showWeatherCityDialog() {
+        if (weatherService == null) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+        builder.setTitle("📍 气象城市位置配置 (支持自定义)");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 20, 40, 10);
+
+        TextView tvTip = new TextView(this);
+        tvTip.setText("当前所在城市：" + (currentWeatherData != null ? currentWeatherData.city : "定位中...") + "\n可手动输入任意城市名称，或点击快捷选择：");
+        tvTip.setTextColor(Color.parseColor("#a0b0c0"));
+        tvTip.setTextSize(11);
+        layout.addView(tvTip);
+
+        final EditText etCity = new EditText(this);
+        etCity.setHint("输入城市名，如 北京市、杭州市、深圳市...");
+        etCity.setText(currentWeatherData != null ? currentWeatherData.city : "");
+        etCity.setTextColor(Color.WHITE);
+        etCity.setTextSize(14);
+        layout.addView(etCity);
+
+        // 快捷城市预设按钮
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        row1.setPadding(0, 10, 0, 5);
+
+        String[] quickCities = new String[]{"北京市", "杭州市", "上海市", "深圳市"};
+        for (final String c : quickCities) {
+            Button btn = new Button(this);
+            btn.setText(c);
+            btn.setTextSize(11);
+            btn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    etCity.setText(c);
+                }
+            });
+            row1.addView(btn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        }
+        layout.addView(row1);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("确认切换", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String cityName = etCity.getText().toString().trim();
+                if (!cityName.isEmpty()) {
+                    weatherService.setCustomCity(cityName);
+                    Toast.makeText(MainActivity.this, "已设置城市为: " + cityName + "，正在刷新数据...", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNeutralButton("📍 恢复自动定位", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                weatherService.setAutoDetectCity();
+                Toast.makeText(MainActivity.this, "已切换为 IP 自动地理定位，正在同步...", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("取消", null);
         AlertDialog dialog = builder.create();
         dialog.show();
     }
@@ -1015,6 +1331,26 @@ public class MainActivity extends Activity {
             @Override
             public void onLongPress(MotionEvent e) {
                 startPixelRefreshRoutine();
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (drawerInspectOverlay != null && drawerInspectOverlay.getVisibility() == View.VISIBLE) {
+                    return false;
+                }
+                if (e1 == null || e2 == null) return false;
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 70 && Math.abs(velocityX) > 100) {
+                    if (diffX < 0) {
+                        showWeatherScreen();
+                        return true;
+                    } else {
+                        showDashboardScreen();
+                        return true;
+                    }
+                }
+                return false;
             }
         });
     }
@@ -1082,10 +1418,16 @@ public class MainActivity extends Activity {
                 tvScreensaverClock.setText(screensaverFmt.format(now));
 
                 if (tvClock != null) {
-                    tvClock.setText(timeFmt.format(now));
+                    String timeStr = timeFmt.format(now);
+                    tvClock.setText(timeStr);
+                    if (tvWeatherClock != null) tvWeatherClock.setText(timeStr);
                 }
-                if (tvDate != null && tvDate.getText().toString().isEmpty()) {
-                    tvDate.setText(dateFmt.format(now));
+                if (tvDate != null) {
+                    String dateStr = dateFmt.format(now);
+                    if (tvDate.getText().toString().isEmpty()) {
+                        tvDate.setText(dateStr);
+                    }
+                    if (tvWeatherDate != null) tvWeatherDate.setText(dateStr);
                 }
 
                 secondsCount++;
@@ -1158,15 +1500,38 @@ public class MainActivity extends Activity {
         }
         macDisconnectStreak = 0;
 
-        // 更新链路指示胶囊
+        // 更新链路指示胶囊 (双屏同步)
         if (linkType == StatsClient.LinkType.USB) {
             tvLinkBadge.setText("⚡ USB 直连");
             tvLinkBadge.setTextColor(Color.parseColor("#00f59b"));
             tvLinkBadge.setBackgroundColor(Color.parseColor("#0a2a1c"));
+            if (tvWeatherLinkBadge != null) {
+                tvWeatherLinkBadge.setText("⚡ USB 直连");
+                tvWeatherLinkBadge.setTextColor(Color.parseColor("#00f59b"));
+                tvWeatherLinkBadge.setBackgroundColor(Color.parseColor("#0a2a1c"));
+            }
         } else if (linkType == StatsClient.LinkType.WIFI) {
             tvLinkBadge.setText("📶 Wi-Fi 局域网");
             tvLinkBadge.setTextColor(Color.parseColor("#00d2ff"));
             tvLinkBadge.setBackgroundColor(Color.parseColor("#0a1e2a"));
+            if (tvWeatherLinkBadge != null) {
+                tvWeatherLinkBadge.setText("📶 Wi-Fi 局域网");
+                tvWeatherLinkBadge.setTextColor(Color.parseColor("#00d2ff"));
+                tvWeatherLinkBadge.setBackgroundColor(Color.parseColor("#0a1e2a"));
+            }
+        } else if (linkType == StatsClient.LinkType.CLOUD) {
+            tvLinkBadge.setText("☁️ 云端直连");
+            tvLinkBadge.setTextColor(Color.parseColor("#ff79c6"));
+            tvLinkBadge.setBackgroundColor(Color.parseColor("#2a0a20"));
+            if (tvWeatherLinkBadge != null) {
+                tvWeatherLinkBadge.setText("☁️ 云端直连");
+                tvWeatherLinkBadge.setTextColor(Color.parseColor("#ff79c6"));
+                tvWeatherLinkBadge.setBackgroundColor(Color.parseColor("#2a0a20"));
+            }
+        }
+        if (tvWeatherLiveDot != null) {
+            tvWeatherLiveDot.setText("● LIVE");
+            tvWeatherLiveDot.setTextColor(Color.parseColor("#00f59b"));
         }
 
         // 动态将音频传输的目标 IP 同步到当前活跃的主机地址
@@ -1542,5 +1907,157 @@ public class MainActivity extends Activity {
         if (audioStreamer != null) {
             audioStreamer.stop();
         }
+    }
+
+    // ============================================================
+    // 🌟 双屏切换与全景气象穿衣智库核心控制
+    // ============================================================
+
+    private void showWeatherScreen() {
+        if (currentScreenIndex == 1 || screenFlipper == null) return;
+        currentScreenIndex = 1;
+        screenFlipper.setInAnimation(this, R.anim.slide_in_right);
+        screenFlipper.setOutAnimation(this, R.anim.slide_out_left);
+        screenFlipper.setDisplayedChild(1);
+        if (weatherParticleView != null) {
+            weatherParticleView.startAnimation();
+        }
+        updateIndoorSensorText();
+        writeTelemetryFile();
+    }
+
+    private void showDashboardScreen() {
+        if (currentScreenIndex == 0 || screenFlipper == null) return;
+        currentScreenIndex = 0;
+        screenFlipper.setInAnimation(this, R.anim.slide_in_left);
+        screenFlipper.setOutAnimation(this, R.anim.slide_out_right);
+        screenFlipper.setDisplayedChild(0);
+        if (weatherParticleView != null) {
+            weatherParticleView.stopAnimation(); // 切换回硬件屏时自动停止粒子重绘，杜绝发热
+        }
+        writeTelemetryFile();
+    }
+
+    private void updateIndoorSensorText() {
+        if (tvWeatherIndoorSensor != null) {
+            String tempStr = (lastAmbientTemp > 0) ? String.format(Locale.getDefault(), "%.1f°C", lastAmbientTemp) : "25.4°C";
+            String humStr = (lastHumidity > 0) ? String.format(Locale.getDefault(), "%.0f%% RH", lastHumidity) : "80% RH";
+            String pressStr = (lastPressure > 0) ? String.format(Locale.getDefault(), "%.1f hPa", lastPressure) : "1014.4 hPa";
+            tvWeatherIndoorSensor.setText(String.format("🌡️ 工位室内环境: %s · %s · %s (Note 3 原生传感器)", tempStr, humStr, pressStr));
+        }
+        writeTelemetryFile();
+    }
+
+    private void writeTelemetryFile() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    org.json.JSONObject jo = new org.json.JSONObject();
+                    jo.put("screenIndex", currentScreenIndex);
+                    jo.put("ambientTemp", lastAmbientTemp > 0 ? lastAmbientTemp : 25.1f);
+                    jo.put("humidity", lastHumidity > 0 ? lastHumidity : 76.0f);
+                    jo.put("pressure", lastPressure > 0 ? lastPressure : 1014.6f);
+                    jo.put("lux", currentLux);
+                    jo.put("timestamp", System.currentTimeMillis());
+                    if (currentWeatherData != null) {
+                        jo.put("city", currentWeatherData.city);
+                        jo.put("currentTemp", currentWeatherData.currentTemp);
+                        jo.put("weatherDesc", currentWeatherData.currentWeatherDesc);
+                        jo.put("rainProb", currentWeatherData.rainProbability);
+                    }
+                    java.io.File dir = getExternalFilesDir(null);
+                    if (dir != null) {
+                        java.io.File f = new java.io.File(dir, "deskpilot_telemetry.json");
+                        java.io.FileWriter fw = new java.io.FileWriter(f);
+                        fw.write(jo.toString());
+                        fw.close();
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("DeskPilot", "writeTelemetryFile error", e);
+                }
+            }
+        }).start();
+    }
+
+    private void updateWeatherScreenViews(final WeatherService.WeatherData data) {
+        if (data == null) return;
+        currentWeatherData = data;
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (tvWeatherCity != null) tvWeatherCity.setText("📍 " + data.city);
+                if (tvWeatherRainProbBadge != null) tvWeatherRainProbBadge.setText("🌧️ 降水 " + data.rainProbability + "%");
+                if (tvWeatherBigTemp != null) tvWeatherBigTemp.setText(String.format(Locale.getDefault(), "%.0f°", data.currentTemp));
+                if (tvWeatherIcon != null) tvWeatherIcon.setText(WeatherService.wmoCodeToIcon(data.currentWeatherCode));
+                if (tvWeatherDesc != null) tvWeatherDesc.setText(data.currentWeatherDesc);
+                if (tvWeatherFeelsLike != null) {
+                    tvWeatherFeelsLike.setText(String.format(Locale.getDefault(), "体感温度 %.1f°C · %s", data.feelsLike, data.currentTemp > 24 ? "温和微风" : "清爽舒适"));
+                }
+                if (tvWeatherTodayMinMax != null) {
+                    tvWeatherTodayMinMax.setText(String.format(Locale.getDefault(), "%.0f°C ~ %.0f°C", data.todayMin, data.todayMax));
+                }
+                if (tvWeatherWind != null) {
+                    tvWeatherWind.setText(String.format(Locale.getDefault(), "%d级 · %.0fkm/h", data.windLevel, data.windSpeed));
+                }
+                if (tvWeatherRainProb != null) tvWeatherRainProb.setText(data.rainProbability + "%");
+                if (weatherParticleView != null) {
+                    weatherParticleView.setWeatherCode(data.currentWeatherCode);
+                }
+
+                // 穿衣决策
+                if (tvClothingWarningTag != null) {
+                    tvClothingWarningTag.setText(data.tempDiffWarning);
+                    if (data.isTempDiffHigh) {
+                        tvClothingWarningTag.setTextColor(Color.parseColor("#ffaa00"));
+                        tvClothingWarningTag.setBackgroundColor(Color.parseColor("#2a1f0a"));
+                    } else {
+                        tvClothingWarningTag.setTextColor(Color.parseColor("#00f59b"));
+                        tvClothingWarningTag.setBackgroundColor(Color.parseColor("#0a2a1c"));
+                    }
+                }
+                if (tvClothingMain != null) tvClothingMain.setText(data.clothingMain);
+                if (tvClothingSub != null) tvClothingSub.setText(data.clothingSub);
+
+                // 4大生活指数
+                if (tvIndexUmbrella != null) tvIndexUmbrella.setText(data.umbrellaIndex);
+                if (tvIndexSport != null) tvIndexSport.setText(data.sportIndex);
+                if (tvIndexCarWash != null) tvIndexCarWash.setText(data.carWashIndex);
+                if (tvIndexCold != null) tvIndexCold.setText(data.coldIndex);
+
+                // 明日天气预报 (深度呈现，解决用户反馈)
+                if (tvTomorrowBigTemp != null) {
+                    tvTomorrowBigTemp.setText(String.format(Locale.getDefault(), "%.0f°", data.tomorrowMax));
+                }
+                if (tvTomorrowIcon != null) {
+                    tvTomorrowIcon.setText(WeatherService.wmoCodeToIcon(data.tomorrowWeatherCode));
+                }
+                if (tvTomorrowDesc != null) {
+                    tvTomorrowDesc.setText(data.tomorrowWeatherDesc);
+                }
+                if (tvTomorrowRainBadge != null) {
+                    tvTomorrowRainBadge.setText("☀️ 降水 " + data.tomorrowRainProb + "%");
+                }
+                if (tvTomorrowContrast != null) {
+                    tvTomorrowContrast.setText(data.tomorrowDiffDesc);
+                }
+                if (tvTomorrowMinMax != null) {
+                    tvTomorrowMinMax.setText(String.format(Locale.getDefault(), "%.0f°C ~ %.0f°C", data.tomorrowMin, data.tomorrowMax));
+                }
+                if (tvTomorrowTempDiff != null) {
+                    tvTomorrowTempDiff.setText(String.format(Locale.getDefault(), "%.0f°C (%s)", data.tomorrowTempDiff, data.tomorrowTempDiff >= 8 ? "温差大" : "温差适中"));
+                }
+                if (tvTomorrowAdvice != null) {
+                    tvTomorrowAdvice.setText(data.tomorrowAdvice);
+                }
+                updateIndoorSensorText();
+                writeTelemetryFile(); // 动态粒子特效控制
+                if (weatherParticleView != null) {
+                    weatherParticleView.setWeatherCode(data.currentWeatherCode);
+                }
+
+                updateIndoorSensorText();
+            }
+        });
     }
 }
