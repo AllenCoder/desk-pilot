@@ -35,6 +35,8 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ViewFlipper;
+import android.widget.ScrollView;
+import android.graphics.drawable.GradientDrawable;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -1283,6 +1285,22 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void styleCyberEditText(EditText et) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(Color.parseColor("#0b1522"));
+        gd.setStroke(2, Color.parseColor("#2a4365"));
+        gd.setCornerRadius(8f);
+        et.setBackground(gd);
+        et.setTextColor(Color.parseColor("#38bdf8"));
+        et.setHintTextColor(Color.parseColor("#475569"));
+        et.setTextSize(13);
+        et.setPadding(28, 22, 28, 22);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 8, 0, 16);
+        et.setLayoutParams(lp);
+    }
+
     private void showConnectionSettingsDialog() {
         closeDrawers();
         final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -1290,10 +1308,6 @@ public class MainActivity extends Activity {
         String customHost = sp.getString("custom_host", "");
         int customPort = sp.getInt("custom_port", 9527);
         String customPath = sp.getString("custom_path", "/api/stats");
-
-        if (customHost.isEmpty() && !savedIp.isEmpty()) {
-            customHost = savedIp;
-        }
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
         builder.setTitle("🖥️ DeskPilot · 服务器连接与网络配置");
@@ -1350,6 +1364,8 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 etHost.setText("");
+                sp.edit().remove("custom_host").remove(KEY_SAVED_MAC_IP).apply();
+                Toast.makeText(MainActivity.this, "已彻底清空已保存的服务器地址", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -1365,8 +1381,7 @@ public class MainActivity extends Activity {
 
         etHost.setHint("请输入服务器 IP 或域名");
         etHost.setText(customHost);
-        etHost.setTextColor(Color.WHITE);
-        etHost.setTextSize(13);
+        styleCyberEditText(etHost);
         layout.addView(etHost);
 
         TextView tvPortLabel = new TextView(this);
@@ -1377,9 +1392,8 @@ public class MainActivity extends Activity {
 
         etPort.setHint("端口号 (默认 9527)");
         etPort.setText(String.valueOf(customPort > 0 ? customPort : 9527));
-        etPort.setTextColor(Color.WHITE);
-        etPort.setTextSize(13);
         etPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        styleCyberEditText(etPort);
         layout.addView(etPort);
 
         TextView tvPathLabel = new TextView(this);
@@ -1390,11 +1404,13 @@ public class MainActivity extends Activity {
 
         etPath.setHint("如 /api/stats");
         etPath.setText(customPath.isEmpty() ? "/api/stats" : customPath);
-        etPath.setTextColor(Color.WHITE);
-        etPath.setTextSize(13);
+        styleCyberEditText(etPath);
         layout.addView(etPath);
 
-        builder.setView(layout);
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.addView(layout);
+        builder.setView(scrollView);
 
         builder.setPositiveButton("保存并立即连接", new DialogInterface.OnClickListener() {
             @Override
@@ -2256,6 +2272,10 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 etHost.setText("");
+                etUser.setText("");
+                etPass.setText("");
+                sp.edit().remove("mcu_host").remove("mcu_user").remove("mcu_pass").apply();
+                Toast.makeText(MainActivity.this, "已彻底清空并重置所有输入", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -2291,57 +2311,55 @@ public class MainActivity extends Activity {
 
         TextView tvHostL = new TextView(this);
         tvHostL.setText("上位机 IP 或域名：");
-        tvHostL.setTextColor(Color.parseColor("#64748b"));
+        tvHostL.setTextColor(Color.parseColor("#94a3b8"));
         tvHostL.setTextSize(11);
         layout.addView(tvHostL);
         etHost.setHint("请输入单片机上位机 IP 或域名");
         etHost.setText(currentMcuHost);
-        etHost.setTextColor(Color.WHITE);
-        etHost.setTextSize(13);
+        styleCyberEditText(etHost);
         layout.addView(etHost);
 
         TextView tvPortL = new TextView(this);
         tvPortL.setText("通信端口 (本地默认 8765，云端 8000)：");
-        tvPortL.setTextColor(Color.parseColor("#64748b"));
+        tvPortL.setTextColor(Color.parseColor("#94a3b8"));
         tvPortL.setTextSize(11);
         layout.addView(tvPortL);
         etPort.setHint("8765");
         etPort.setText(String.valueOf(currentMcuPort));
-        etPort.setTextColor(Color.WHITE);
-        etPort.setTextSize(13);
         etPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        styleCyberEditText(etPort);
         layout.addView(etPort);
 
         TextView tvSecL = new TextView(this);
         tvSecL.setText("安全隐藏前缀路径 (Secret Path)：");
-        tvSecL.setTextColor(Color.parseColor("#64748b"));
+        tvSecL.setTextColor(Color.parseColor("#94a3b8"));
         tvSecL.setTextSize(11);
         layout.addView(tvSecL);
         etSecret.setHint("如 /ctrl-ef691ada9ea6");
         etSecret.setText(currentMcuSecret);
-        etSecret.setTextColor(Color.WHITE);
-        etSecret.setTextSize(13);
+        styleCyberEditText(etSecret);
         layout.addView(etSecret);
 
         TextView tvAuthL = new TextView(this);
-        tvAuthL.setText("鉴权账号与密码 (可选)：");
-        tvAuthL.setTextColor(Color.parseColor("#64748b"));
+        tvAuthL.setText("鉴权账号与口令密码 (可选)：");
+        tvAuthL.setTextColor(Color.parseColor("#94a3b8"));
         tvAuthL.setTextSize(11);
         layout.addView(tvAuthL);
         etUser.setHint("鉴权账号 (无则留空)");
         etUser.setText(currentMcuUser);
-        etUser.setTextColor(Color.WHITE);
-        etUser.setTextSize(13);
+        styleCyberEditText(etUser);
         layout.addView(etUser);
 
         etPass.setHint("鉴权口令 (无则留空)");
         etPass.setText(currentMcuPass);
-        etPass.setTextColor(Color.WHITE);
-        etPass.setTextSize(13);
         etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        styleCyberEditText(etPass);
         layout.addView(etPass);
 
-        builder.setView(layout);
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.addView(layout);
+        builder.setView(scrollView);
         builder.setPositiveButton("保存并立即连接", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
