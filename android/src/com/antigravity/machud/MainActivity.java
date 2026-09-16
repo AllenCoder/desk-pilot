@@ -42,6 +42,7 @@ import java.io.FileReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.List;
 
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "deskpilot_prefs";
@@ -74,6 +75,21 @@ public class MainActivity extends Activity {
 
     private WeatherService weatherService;
     private WeatherService.WeatherData currentWeatherData;
+
+    // 屏 3: ESP32-C3 AlphaPi 原生极客外设工作台组件
+    private ImuHorizonView imuHorizonView;
+    private MicrophoneVuView micVuView;
+    private IrRadarView irRadarView;
+    private LedStripView ledStripView;
+    private TextView tvIotConnStatus, tvLedModeDesc, tvSoundStatus, tvWifiResults, tvIotPageIndicator;
+    private View btnIotSettings, btnSwitchIotToScreen1;
+    private View btnLedRainbow, btnLedVol, btnLedGreen, btnLedBlue, btnLedOff;
+    private View btnSoundDu, btnSoundAlert, btnSoundCoin, btnSoundStop;
+    private View btnWifiScan;
+    private AlphaPiClient alphaPiClient;
+    private String currentLedMode = "rainbow";
+    private int currentLedColor = Color.parseColor("#00f59b");
+    private float currentLedBrightness = 0.5f;
 
     // 顶部状态栏
     private TextView tvUptime, tvClock, tvDate;
@@ -276,6 +292,7 @@ public class MainActivity extends Activity {
             }
         });
         weatherService.loadCachedOrFetch();
+        initAlphaPiClient();
     }
 
 
@@ -561,6 +578,168 @@ public class MainActivity extends Activity {
         tvWeatherIndoorSensor = findViewById(R.id.tv_weather_indoor_sensor);
         tvWeatherPageIndicator = findViewById(R.id.tv_weather_page_indicator);
         weatherParticleView = findViewById(R.id.weather_particle_view);
+
+        // 屏 3: ESP32-C3 AlphaPi 原生极客外设工作台组件绑定
+        imuHorizonView = findViewById(R.id.imu_horizon_view);
+        micVuView = findViewById(R.id.mic_vu_view);
+        irRadarView = findViewById(R.id.ir_radar_view);
+        ledStripView = findViewById(R.id.led_strip_view);
+        tvIotConnStatus = findViewById(R.id.tv_iot_conn_status);
+        tvLedModeDesc = findViewById(R.id.tv_led_mode_desc);
+        tvSoundStatus = findViewById(R.id.tv_sound_status);
+        tvWifiResults = findViewById(R.id.tv_wifi_results);
+        tvIotPageIndicator = findViewById(R.id.tv_iot_page_indicator);
+        btnIotSettings = findViewById(R.id.btn_iot_settings);
+        btnSwitchIotToScreen1 = findViewById(R.id.btn_switch_iot_to_screen1);
+
+        btnLedRainbow = findViewById(R.id.btn_led_rainbow);
+        btnLedVol = findViewById(R.id.btn_led_vol);
+        btnLedGreen = findViewById(R.id.btn_led_green);
+        btnLedBlue = findViewById(R.id.btn_led_blue);
+        btnLedOff = findViewById(R.id.btn_led_off);
+
+        btnSoundDu = findViewById(R.id.btn_sound_du);
+        btnSoundAlert = findViewById(R.id.btn_sound_alert);
+        btnSoundCoin = findViewById(R.id.btn_sound_coin);
+        btnSoundStop = findViewById(R.id.btn_sound_stop);
+        btnWifiScan = findViewById(R.id.btn_wifi_scan);
+
+        if (btnIotSettings != null) {
+            btnIotSettings.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showIotSettingsDialog();
+                }
+            });
+        }
+        if (btnSwitchIotToScreen1 != null) {
+            btnSwitchIotToScreen1.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showDashboardScreen();
+                }
+            });
+        }
+        if (tvIotPageIndicator != null) {
+            tvIotPageIndicator.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showDashboardScreen();
+                }
+            });
+        }
+
+        // LED 控制绑定
+        if (btnLedRainbow != null) {
+            btnLedRainbow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentLedMode = "rainbow";
+                    if (ledStripView != null) ledStripView.setLedState("rainbow", currentLedColor, currentLedBrightness);
+                    if (tvLedModeDesc != null) tvLedModeDesc.setText("🌈 彩虹流水 (50%)");
+                    if (alphaPiClient != null) alphaPiClient.sendLedRainbow();
+                }
+            });
+        }
+        if (btnLedVol != null) {
+            btnLedVol.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentLedMode = "vol_mode";
+                    if (ledStripView != null) ledStripView.setLedState("vol_mode", currentLedColor, currentLedBrightness);
+                    if (tvLedModeDesc != null) tvLedModeDesc.setText("🎵 拾音律动 (麦克风联动)");
+                    if (alphaPiClient != null) alphaPiClient.sendLedVolMode();
+                }
+            });
+        }
+        if (btnLedGreen != null) {
+            btnLedGreen.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentLedMode = "color";
+                    currentLedColor = Color.parseColor("#00f59b");
+                    if (ledStripView != null) ledStripView.setLedState("color", currentLedColor, currentLedBrightness);
+                    if (tvLedModeDesc != null) tvLedModeDesc.setText("🟢 极客荧光绿");
+                    if (alphaPiClient != null) alphaPiClient.sendLedColor(0, 245, 155, currentLedBrightness);
+                }
+            });
+        }
+        if (btnLedBlue != null) {
+            btnLedBlue.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentLedMode = "color";
+                    currentLedColor = Color.parseColor("#00d2ff");
+                    if (ledStripView != null) ledStripView.setLedState("color", currentLedColor, currentLedBrightness);
+                    if (tvLedModeDesc != null) tvLedModeDesc.setText("🔵 冰晶科幻蓝");
+                    if (alphaPiClient != null) alphaPiClient.sendLedColor(0, 210, 255, currentLedBrightness);
+                }
+            });
+        }
+        if (btnLedOff != null) {
+            btnLedOff.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    currentLedMode = "off";
+                    if (ledStripView != null) ledStripView.setLedState("off", currentLedColor, 0f);
+                    if (tvLedModeDesc != null) tvLedModeDesc.setText("⚫ 已关闭灯效");
+                    if (alphaPiClient != null) alphaPiClient.sendLedOff();
+                }
+            });
+        }
+
+        // 音效控制绑定
+        if (btnSoundDu != null) {
+            btnSoundDu.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (alphaPiClient != null) alphaPiClient.playSound("du.dat");
+                    if (tvSoundStatus != null) tvSoundStatus.setText("🔊 播放: 嘟一声");
+                }
+            });
+        }
+        if (btnSoundAlert != null) {
+            btnSoundAlert.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (alphaPiClient != null) alphaPiClient.playSound("alert.dat");
+                    if (tvSoundStatus != null) tvSoundStatus.setText("🚨 播放: 紧急警报");
+                }
+            });
+        }
+        if (btnSoundCoin != null) {
+            btnSoundCoin.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (alphaPiClient != null) alphaPiClient.playSound("coin.dat");
+                    if (tvSoundStatus != null) tvSoundStatus.setText("🪙 播放: 金币拾取");
+                }
+            });
+        }
+        if (btnSoundStop != null) {
+            btnSoundStop.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (alphaPiClient != null) alphaPiClient.stopSound();
+                    if (tvSoundStatus != null) tvSoundStatus.setText("🔇 已急停静音");
+                }
+            });
+        }
+
+        // Wi-Fi 扫描绑定
+        if (btnWifiScan != null) {
+            btnWifiScan.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (alphaPiClient != null) {
+                        alphaPiClient.scanWifi();
+                        if (tvWifiResults != null) {
+                            tvWifiResults.setText("📡 正在向 ESP32-C3 发送射频扫描指令，请稍候约 2 秒...");
+                        }
+                    }
+                }
+            });
+        }
 
         if (btnSwitchToScreen1 != null) {
             btnSwitchToScreen1.setOnClickListener(new View.OnClickListener() {
@@ -1343,10 +1522,22 @@ public class MainActivity extends Activity {
                 float diffY = e2.getY() - e1.getY();
                 if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 70 && Math.abs(velocityX) > 100) {
                     if (diffX < 0) {
-                        showWeatherScreen();
+                        if (currentScreenIndex == 0) {
+                            showWeatherScreen();
+                        } else if (currentScreenIndex == 1) {
+                            showIotScreen();
+                        } else {
+                            showDashboardScreen();
+                        }
                         return true;
                     } else {
-                        showDashboardScreen();
+                        if (currentScreenIndex == 2) {
+                            showWeatherScreen();
+                        } else if (currentScreenIndex == 1) {
+                            showDashboardScreen();
+                        } else {
+                            showIotScreen();
+                        }
                         return true;
                     }
                 }
@@ -1907,6 +2098,9 @@ public class MainActivity extends Activity {
         if (audioStreamer != null) {
             audioStreamer.stop();
         }
+        if (alphaPiClient != null) {
+            alphaPiClient.stop();
+        }
     }
 
     // ============================================================
@@ -1936,6 +2130,260 @@ public class MainActivity extends Activity {
             weatherParticleView.stopAnimation(); // 切换回硬件屏时自动停止粒子重绘，杜绝发热
         }
         writeTelemetryFile();
+    }
+
+    // ============================================================
+    // 🌟 屏 3：ESP32-C3 AlphaPi 极客外设工作台核心调度
+    // ============================================================
+
+    private void showIotScreen() {
+        if (currentScreenIndex == 2 || screenFlipper == null) return;
+        boolean fromLeft = currentScreenIndex < 2;
+        currentScreenIndex = 2;
+        screenFlipper.setInAnimation(this, fromLeft ? R.anim.slide_in_right : R.anim.slide_in_left);
+        screenFlipper.setOutAnimation(this, fromLeft ? R.anim.slide_out_left : R.anim.slide_out_right);
+        screenFlipper.setDisplayedChild(2);
+        if (weatherParticleView != null) {
+            weatherParticleView.stopAnimation();
+        }
+        writeTelemetryFile();
+    }
+
+    private void initAlphaPiClient() {
+        alphaPiClient = new AlphaPiClient();
+        SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String savedMacIp = sp.getString(KEY_SAVED_MAC_IP, "");
+        String mHost = sp.getString("mcu_host", "");
+        if (mHost.isEmpty()) {
+            mHost = savedMacIp.isEmpty() ? "127.0.0.1" : savedMacIp;
+        }
+        int mPort = sp.getInt("mcu_port", 8765);
+        String mSecret = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
+        String mUser = sp.getString("mcu_user", "");
+        String mPass = sp.getString("mcu_pass", "");
+
+        alphaPiClient.setConfig(mHost, mPort, mSecret, mUser, mPass);
+        alphaPiClient.setListener(new AlphaPiClient.AlphaPiListener() {
+            @Override
+            public void onTelemetry(float pitch, float roll, int ax, int ay, int az, int vol, int ir, int fps, boolean connected) {
+                if (imuHorizonView != null) {
+                    imuHorizonView.updateAttitude(pitch, roll, ax, ay, az);
+                }
+                if (micVuView != null) {
+                    micVuView.updateVolume(vol);
+                }
+                if (irRadarView != null) {
+                    irRadarView.updateIrState(ir);
+                }
+                if (ledStripView != null) {
+                    ledStripView.updateVolPreview(vol);
+                }
+                if (tvIotConnStatus != null) {
+                    tvIotConnStatus.setText(String.format(Locale.getDefault(), "● MCU ONLINE · %d FPS", fps));
+                    tvIotConnStatus.setTextColor(Color.parseColor("#00f59b"));
+                }
+            }
+
+            @Override
+            public void onWifiScanResult(List<AlphaPiClient.WifiApItem> aps) {
+                if (tvWifiResults != null) {
+                    if (aps.isEmpty()) {
+                        tvWifiResults.setText("⚠️ 未搜索到周边 Wi-Fi 信号");
+                    } else {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(String.format(Locale.getDefault(), "🎉 发现 %d 个无线网络 (2.4GHz 射频):\n\n", aps.size()));
+                        for (AlphaPiClient.WifiApItem ap : aps) {
+                            String bar = ap.rssi > -60 ? " ▂▃▄▅ (极佳)" : (ap.rssi > -75 ? " ▂▃▄_ (良好)" : " ▂___ (较弱)");
+                            sb.append("📡 ").append(ap.ssid)
+                              .append(" [信道 ").append(ap.channel).append("] ")
+                              .append(ap.rssi).append(" dBm").append(bar).append("\n");
+                        }
+                        tvWifiResults.setText(sb.toString());
+                    }
+                }
+            }
+
+            @Override
+            public void onSoundEvent(String soundFile) {
+                if (tvSoundStatus != null) {
+                    tvSoundStatus.setText("🔊 播放: " + soundFile);
+                }
+            }
+
+            @Override
+            public void onConnectionStatus(boolean online, String message) {
+                if (tvIotConnStatus != null) {
+                    tvIotConnStatus.setText(message);
+                    tvIotConnStatus.setTextColor(online ? Color.parseColor("#00f59b") : Color.parseColor("#ef4444"));
+                }
+            }
+        });
+        alphaPiClient.start();
+    }
+
+    private void showIotSettingsDialog() {
+        closeDrawers();
+        final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String savedMacIp = sp.getString(KEY_SAVED_MAC_IP, "");
+        String currentMcuHost = sp.getString("mcu_host", "");
+        if (currentMcuHost.isEmpty()) {
+            currentMcuHost = savedMacIp.isEmpty() ? "127.0.0.1" : savedMacIp;
+        }
+        int currentMcuPort = sp.getInt("mcu_port", 8765);
+        String currentMcuSecret = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
+        String currentMcuUser = sp.getString("mcu_user", "");
+        String currentMcuPass = sp.getString("mcu_pass", "");
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+        builder.setTitle("⚡ ESP32-C3 AlphaPi 硬件上位机配置");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 20, 40, 10);
+
+        TextView tvInfo = new TextView(this);
+        tvInfo.setText("提示：连接本地运行的 server.py 或远程中继服务器。\n快捷预设方案：");
+        tvInfo.setTextColor(Color.parseColor("#94a3b8"));
+        tvInfo.setTextSize(11);
+        layout.addView(tvInfo);
+
+        final EditText etHost = new EditText(this);
+        final EditText etPort = new EditText(this);
+        final EditText etSecret = new EditText(this);
+        final EditText etUser = new EditText(this);
+        final EditText etPass = new EditText(this);
+
+        // 预设快捷按钮横向排布
+        LinearLayout presetsLayout = new LinearLayout(this);
+        presetsLayout.setOrientation(LinearLayout.HORIZONTAL);
+        presetsLayout.setPadding(0, 10, 0, 15);
+
+        Button btnUsb = new Button(this);
+        btnUsb.setText("⚡ USB/本地 (127.0.0.1:8765)");
+        btnUsb.setTextSize(10);
+        btnUsb.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                etHost.setText("127.0.0.1");
+                etPort.setText("8765");
+                etSecret.setText("/ctrl-ef691ada9ea6");
+            }
+        });
+
+        Button btnMacSync = new Button(this);
+        btnMacSync.setText("📶 沿用 Mac 主机 IP");
+        btnMacSync.setTextSize(10);
+        final String fMacIp = savedMacIp;
+        btnMacSync.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!fMacIp.isEmpty()) {
+                    etHost.setText(fMacIp);
+                }
+                etPort.setText("8765");
+                etSecret.setText("/ctrl-ef691ada9ea6");
+            }
+        });
+
+        Button btnCloud = new Button(this);
+        btnCloud.setText("☁️ 云端端口 8000");
+        btnCloud.setTextSize(10);
+        btnCloud.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                etPort.setText("8000");
+                etSecret.setText("/ctrl-ef691ada9ea6");
+            }
+        });
+
+        presetsLayout.addView(btnUsb, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        presetsLayout.addView(btnMacSync, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        presetsLayout.addView(btnCloud, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        layout.addView(presetsLayout);
+
+        TextView tvHostL = new TextView(this);
+        tvHostL.setText("上位机 IP 或域名：");
+        tvHostL.setTextColor(Color.parseColor("#64748b"));
+        tvHostL.setTextSize(11);
+        layout.addView(tvHostL);
+        etHost.setHint("如 192.168.1.100 或 127.0.0.1");
+        etHost.setText(currentMcuHost);
+        etHost.setTextColor(Color.WHITE);
+        etHost.setTextSize(13);
+        layout.addView(etHost);
+
+        TextView tvPortL = new TextView(this);
+        tvPortL.setText("通信端口 (本地默认 8765，云端 8000)：");
+        tvPortL.setTextColor(Color.parseColor("#64748b"));
+        tvPortL.setTextSize(11);
+        layout.addView(tvPortL);
+        etPort.setHint("8765");
+        etPort.setText(String.valueOf(currentMcuPort));
+        etPort.setTextColor(Color.WHITE);
+        etPort.setTextSize(13);
+        etPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        layout.addView(etPort);
+
+        TextView tvSecL = new TextView(this);
+        tvSecL.setText("安全隐藏前缀路径 (Secret Path)：");
+        tvSecL.setTextColor(Color.parseColor("#64748b"));
+        tvSecL.setTextSize(11);
+        layout.addView(tvSecL);
+        etSecret.setHint("如 /ctrl-ef691ada9ea6");
+        etSecret.setText(currentMcuSecret);
+        etSecret.setTextColor(Color.WHITE);
+        etSecret.setTextSize(13);
+        layout.addView(etSecret);
+
+        TextView tvAuthL = new TextView(this);
+        tvAuthL.setText("鉴权账号与密码 (可选)：");
+        tvAuthL.setTextColor(Color.parseColor("#64748b"));
+        tvAuthL.setTextSize(11);
+        layout.addView(tvAuthL);
+        etUser.setHint("鉴权账号 (无则留空)");
+        etUser.setText(currentMcuUser);
+        etUser.setTextColor(Color.WHITE);
+        etUser.setTextSize(13);
+        layout.addView(etUser);
+
+        etPass.setHint("鉴权口令 (无则留空)");
+        etPass.setText(currentMcuPass);
+        etPass.setTextColor(Color.WHITE);
+        etPass.setTextSize(13);
+        etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etPass);
+
+        builder.setView(layout);
+        builder.setPositiveButton("保存并立即连接", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String hostInput = etHost.getText().toString().trim();
+                String portInput = etPort.getText().toString().trim();
+                String secretInput = etSecret.getText().toString().trim();
+                String userInput = etUser.getText().toString().trim();
+                String passInput = etPass.getText().toString().trim();
+
+                int port = 8765;
+                try {
+                    port = Integer.parseInt(portInput);
+                } catch (Exception ignored) {}
+
+                sp.edit()
+                    .putString("mcu_host", hostInput)
+                    .putInt("mcu_port", port)
+                    .putString("mcu_secret", secretInput)
+                    .putString("mcu_user", userInput)
+                    .putString("mcu_pass", passInput)
+                    .apply();
+
+                if (alphaPiClient != null) {
+                    alphaPiClient.setConfig(hostInput, port, secretInput, userInput, passInput);
+                }
+                Toast.makeText(MainActivity.this, "已应用 AlphaPi 配置: " + hostInput + ":" + port + "，重连中...", Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.setNegativeButton("取消", null);
+        builder.create().show();
     }
 
     private void updateIndoorSensorText() {
