@@ -43,6 +43,10 @@ public class AudioStreamer {
         }
     }
 
+    public String getTargetHost() {
+        return targetHost;
+    }
+
     public void setAmplitudeListener(AmplitudeListener listener) {
         this.amplitudeListener = listener;
     }

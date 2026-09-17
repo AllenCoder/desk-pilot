@@ -83,7 +83,7 @@ public class MainActivity extends Activity {
     private MicrophoneVuView micVuView;
     private IrRadarView irRadarView;
     private LedStripView ledStripView;
-    private TextView tvIotConnStatus, tvLedModeDesc, tvSoundStatus, tvWifiResults, tvIotPageIndicator;
+    private TextView tvIotConnStatus, tvLedModeDesc, tvSoundStatus, tvWifiResults, tvIotPageIndicator, btnIotMicToggle;
     private View btnIotSettings, btnSwitchIotToScreen1;
     private View btnLedRainbow, btnLedVol, btnLedGreen, btnLedBlue, btnLedOff;
     private View btnSoundDu, btnSoundAlert, btnSoundCoin, btnSoundStop;
@@ -230,6 +230,9 @@ public class MainActivity extends Activity {
                         if (micWaveView != null) {
                             micWaveView.updateAmplitude(normalizedAmp);
                         }
+                        if (micVuView != null) {
+                            micVuView.updateVolume((int) (normalizedAmp * 100));
+                        }
                     }
                 });
             }
@@ -237,6 +240,14 @@ public class MainActivity extends Activity {
 
         SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String savedHost = sp.getString(KEY_SAVED_MAC_IP, "");
+        if (savedHost != null && !savedHost.isEmpty()) {
+            audioStreamer.setTargetHost(savedHost);
+        } else {
+            String mcuHost = sp.getString("mcu_host", "");
+            if (mcuHost != null && !mcuHost.isEmpty()) {
+                audioStreamer.setTargetHost(mcuHost);
+            }
+        }
 
         // 启动具备双通道自愈与自动发现的 Mac 状态客户端
         statsClient = new StatsClient(savedHost, new StatsClient.Listener() {
@@ -627,6 +638,16 @@ public class MainActivity extends Activity {
                 @Override
                 public void onClick(View v) {
                     showDashboardScreen();
+                }
+            });
+        }
+
+        btnIotMicToggle = findViewById(R.id.btn_iot_mic_toggle);
+        if (btnIotMicToggle != null) {
+            btnIotMicToggle.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    toggleMicrophone();
                 }
             });
         }
@@ -1435,6 +1456,9 @@ public class MainActivity extends Activity {
                     statsClient.setCustomServer(hostInput, port, pathInput);
                     statsClient.setFallbackHost(hostInput);
                 }
+                if (audioStreamer != null && !hostInput.isEmpty()) {
+                    audioStreamer.setTargetHost(hostInput);
+                }
                 Toast.makeText(MainActivity.this, "已保存目标服务器: " + hostInput + ":" + port + pathInput + "，正在连接...", Toast.LENGTH_SHORT).show();
             }
         });
@@ -2081,6 +2105,10 @@ public class MainActivity extends Activity {
                     micWaveView.setVisibility(View.VISIBLE);
                     micWaveView.setRunning(true);
                 }
+                if (btnIotMicToggle != null) {
+                    btnIotMicToggle.setText("🔴 直通中 (点击静音)");
+                    btnIotMicToggle.setTextColor(Color.parseColor("#ef4444"));
+                }
                 if (userInitiated) {
                     Toast.makeText(this, "麦克风已连接 Mac 系统输入", Toast.LENGTH_SHORT).show();
                 }
@@ -2095,6 +2123,10 @@ public class MainActivity extends Activity {
             if (micWaveView != null) {
                 micWaveView.setRunning(false);
                 micWaveView.setVisibility(View.GONE);
+            }
+            if (btnIotMicToggle != null) {
+                btnIotMicToggle.setText("🎙️ 直通上位机");
+                btnIotMicToggle.setTextColor(Color.parseColor("#38bdf8"));
             }
             if (userInitiated) {
                 Toast.makeText(this, "麦克风已关闭", Toast.LENGTH_SHORT).show();
@@ -2384,6 +2416,12 @@ public class MainActivity extends Activity {
 
                 if (alphaPiClient != null) {
                     alphaPiClient.setConfig(hostInput, port, secretInput, userInput, passInput);
+                }
+                if (audioStreamer != null && !hostInput.isEmpty()) {
+                    String curTarget = audioStreamer.getTargetHost();
+                    if (curTarget == null || curTarget.equals("127.0.0.1") || curTarget.isEmpty()) {
+                        audioStreamer.setTargetHost(hostInput);
+                    }
                 }
                 Toast.makeText(MainActivity.this, "已应用 AlphaPi 配置: " + hostInput + ":" + port + "，重连中...", Toast.LENGTH_SHORT).show();
             }
