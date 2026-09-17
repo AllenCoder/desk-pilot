@@ -30,6 +30,7 @@ public class AlphaPiClient {
         void onTelemetry(float pitch, float roll, int ax, int ay, int az, int vol, int ir, int fps, boolean connected);
         void onWifiScanResult(List<WifiApItem> aps);
         void onSoundEvent(String soundFile);
+        void onWifiStatus(boolean connected, String ssid, String ip, String gw);
         void onConnectionStatus(boolean online, String message);
     }
 
@@ -211,6 +212,24 @@ public class AlphaPiClient {
                 return;
             }
 
+            // 检查 Wi-Fi 连接状态事件
+            if (obj.has("type") && "wifi_status".equals(obj.optString("type"))) {
+                JSONObject st = obj.optJSONObject("status");
+                if (st != null) {
+                    final boolean conn = st.optBoolean("connected", false);
+                    final String ssid = st.optString("ssid", "");
+                    final String ip = st.optString("ip", "");
+                    final String gw = st.optString("gw", "");
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (listener != null) listener.onWifiStatus(conn, ssid, ip, gw);
+                        }
+                    });
+                }
+                return;
+            }
+
             // 检查声音事件
             if (obj.has("type") && "sound".equals(obj.optString("type"))) {
                 final String soundFile = obj.optString("file", "");
@@ -292,6 +311,20 @@ public class AlphaPiClient {
 
     public void scanWifi() {
         postJson("/api/wifi", "{\"cmd\":\"scan_wifi\"}");
+    }
+
+    public void sendWifiConnect(String ssid, String password, String targetHost) {
+        try {
+            JSONObject json = new JSONObject();
+            json.put("ssid", ssid);
+            json.put("password", password);
+            json.put("target_host", targetHost);
+            postJson("/api/wifi/connect", json.toString());
+        } catch (Exception ignored) {}
+    }
+
+    public void sendWifiDisconnect() {
+        postJson("/api/wifi/disconnect", "{}");
     }
 
     private void postJson(final String subPath, final String jsonBody) {

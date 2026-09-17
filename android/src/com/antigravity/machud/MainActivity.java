@@ -763,6 +763,14 @@ public class MainActivity extends Activity {
                 }
             });
         }
+        if (tvWifiResults != null) {
+            tvWifiResults.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showWifiConnectDialog();
+                }
+            });
+        }
 
         if (btnSwitchToScreen1 != null) {
             btnSwitchToScreen1.setOnClickListener(new View.OnClickListener() {
@@ -2253,6 +2261,17 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onWifiStatus(boolean connected, String ssid, String ip, String gw) {
+                if (tvIotConnStatus != null && connected) {
+                    tvIotConnStatus.setText("● Wi-Fi ONLINE · " + ip);
+                    tvIotConnStatus.setTextColor(Color.parseColor("#00f59b"));
+                }
+                if (tvWifiResults != null && connected) {
+                    tvWifiResults.setText("🟢 Wi-Fi 已联网: " + ssid + "\n板载 IP: " + ip + " · 网关: " + gw + "\n无线 30 FPS 遥测传输已就绪 (点击重配)");
+                }
+            }
+
+            @Override
             public void onConnectionStatus(boolean online, String message) {
                 if (tvIotConnStatus != null) {
                     tvIotConnStatus.setText(message);
@@ -2426,6 +2445,67 @@ public class MainActivity extends Activity {
                 Toast.makeText(MainActivity.this, "已应用 AlphaPi 配置: " + hostInput + ":" + port + "，重连中...", Toast.LENGTH_SHORT).show();
             }
         });
+        builder.setNegativeButton("取消", null);
+        builder.create().show();
+    }
+
+    private void showWifiConnectDialog() {
+        closeDrawers();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+        builder.setTitle("📶 ESP32-C3 Wi-Fi 路由器联网配置");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(40, 20, 40, 10);
+
+        TextView tvInfo = new TextView(this);
+        tvInfo.setText("将开发板连接到 Wi-Fi 路由器，开启免 USB 线的 30 FPS 无线遥测上传与双向交互：");
+        tvInfo.setTextColor(Color.parseColor("#94a3b8"));
+        tvInfo.setTextSize(12);
+        layout.addView(tvInfo);
+
+        final EditText etSsid = new EditText(this);
+        etSsid.setHint("Wi-Fi 名称 (SSID)");
+        styleCyberEditText(etSsid);
+        layout.addView(etSsid);
+
+        final EditText etPass = new EditText(this);
+        etPass.setHint("Wi-Fi 密码 (无密码留空)");
+        etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        styleCyberEditText(etPass);
+        layout.addView(etPass);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(layout);
+        builder.setView(sv);
+
+        builder.setPositiveButton("连接", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String ssid = etSsid.getText().toString().trim();
+                String pwd = etPass.getText().toString().trim();
+                if (ssid.isEmpty()) {
+                    Toast.makeText(MainActivity.this, "请输入目标 Wi-Fi SSID", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (alphaPiClient != null) {
+                    String targetHost = alphaPiClient.getHost();
+                    alphaPiClient.sendWifiConnect(ssid, pwd, targetHost);
+                    Toast.makeText(MainActivity.this, "已下发连接 Wi-Fi: " + ssid + "，请稍候...", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNeutralButton("断开Wi-Fi", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if (alphaPiClient != null) {
+                    alphaPiClient.sendWifiDisconnect();
+                    Toast.makeText(MainActivity.this, "已下发断开 Wi-Fi 指令", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
         builder.setNegativeButton("取消", null);
         builder.create().show();
     }
