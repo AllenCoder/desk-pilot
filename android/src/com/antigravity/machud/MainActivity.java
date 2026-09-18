@@ -294,23 +294,18 @@ public class MainActivity extends Activity {
         String customUser = sp.getString("custom_user", "");
         String customPass = sp.getString("custom_pass", "");
 
-        // 🌟 智能自动联动：若未单独配置 Screen 1 自定义主机，但配置了 AlphaPi 云端上位机地址，则自动同步复用云端地址与鉴权
-        if (customHost.isEmpty()) {
-            String mcuHost = sp.getString("mcu_host", "");
-            if (!mcuHost.isEmpty()) {
-                customHost = mcuHost;
-                customPort = sp.getInt("mcu_port", 8765);
-                String secret = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
-                if (secret == null) secret = "";
-                while (secret.endsWith("/")) secret = secret.substring(0, secret.length() - 1);
-                customPath = secret + "/api/stats";
-                customUser = sp.getString("mcu_user", "");
-                customPass = sp.getString("mcu_pass", "");
-            }
-        }
-
         if (!customHost.isEmpty()) {
             statsClient.setCustomServer(customHost, customPort, customPath, customUser, customPass);
+        }
+
+        // 🌟 核心升级：将 AlphaPi 上位机的云端配置自动挂载为 Screen 1 的云端中继通道
+        String mHost = sp.getString("mcu_host", "");
+        int mPort = sp.getInt("mcu_port", 8000);
+        String mSec = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
+        String mUser = sp.getString("mcu_user", "");
+        String mPass = sp.getString("mcu_pass", "");
+        if (!mHost.isEmpty()) {
+            statsClient.setCloudServer(mHost, mPort, mSec, mUser, mPass);
         }
         statsClient.start();
 
@@ -1441,8 +1436,13 @@ public class MainActivity extends Activity {
         tvHostLabel.setTextSize(11);
         layout.addView(tvHostLabel);
 
+        String mcuSavedHost = sp.getString("mcu_host", "");
+        int mcuSavedPort = sp.getInt("mcu_port", 8000);
+        String mcuSavedUser = sp.getString("mcu_user", "");
+        String mcuSavedPass = sp.getString("mcu_pass", "");
+
         etHost.setHint("请输入服务器 IP 或域名");
-        etHost.setText(customHost);
+        etHost.setText(!customHost.isEmpty() ? customHost : mcuSavedHost);
         styleCyberEditText(etHost);
         layout.addView(etHost);
 
@@ -1453,7 +1453,8 @@ public class MainActivity extends Activity {
         layout.addView(tvPortLabel);
 
         etPort.setHint("端口号 (默认 9527 / 云端 8000)");
-        etPort.setText(String.valueOf(customPort > 0 ? customPort : 9527));
+        int displayPort = customPort > 0 ? customPort : (!mcuSavedHost.isEmpty() ? mcuSavedPort : 9527);
+        etPort.setText(String.valueOf(displayPort));
         etPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         styleCyberEditText(etPort);
         layout.addView(etPort);
@@ -1477,7 +1478,8 @@ public class MainActivity extends Activity {
 
         final EditText etUser = new EditText(this);
         etUser.setHint("如 pilot_admin (内网直连留空)");
-        etUser.setText(sp.getString("custom_user", ""));
+        String savedUser = sp.getString("custom_user", "");
+        etUser.setText(!savedUser.isEmpty() ? savedUser : mcuSavedUser);
         styleCyberEditText(etUser);
         layout.addView(etUser);
 
@@ -1489,7 +1491,8 @@ public class MainActivity extends Activity {
 
         final EditText etPass = new EditText(this);
         etPass.setHint("如口令密码 (内网直连留空)");
-        etPass.setText(sp.getString("custom_pass", ""));
+        String savedPass = sp.getString("custom_pass", "");
+        etPass.setText(!savedPass.isEmpty() ? savedPass : mcuSavedPass);
         etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         styleCyberEditText(etPass);
         layout.addView(etPass);
@@ -1498,7 +1501,7 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 String mHost = sp.getString("mcu_host", "");
-                int mPort = sp.getInt("mcu_port", 8765);
+                int mPort = sp.getInt("mcu_port", 8000);
                 String mSec = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
                 String mUser = sp.getString("mcu_user", "");
                 String mPass = sp.getString("mcu_pass", "");
@@ -1546,6 +1549,7 @@ public class MainActivity extends Activity {
 
                 if (statsClient != null) {
                     statsClient.setCustomServer(hostInput, port, pathInput, userInput, passInput);
+                    statsClient.setCloudServer(hostInput, port, pathInput, userInput, passInput);
                     statsClient.setFallbackHost(hostInput);
                 }
                 if (audioStreamer != null && !hostInput.isEmpty()) {
@@ -2523,6 +2527,9 @@ public class MainActivity extends Activity {
 
                 if (alphaPiClient != null) {
                     alphaPiClient.setConfig(hostInput, port, secretInput, userInput, passInput);
+                }
+                if (statsClient != null) {
+                    statsClient.setCloudServer(hostInput, port, secretInput, userInput, passInput);
                 }
                 if (audioStreamer != null && !hostInput.isEmpty()) {
                     String curTarget = audioStreamer.getTargetHost();

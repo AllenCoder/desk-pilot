@@ -167,6 +167,25 @@ public class StatsClient {
         return customPass;
     }
 
+    // 专用云端中继参数（当在外网、局域网与 USB 均不通时自动启用）
+    private volatile String cloudHost = "";
+    private volatile int cloudPort = 8000;
+    private volatile String cloudSecret = "/ctrl-ef691ada9ea6";
+    private volatile String cloudUser = "";
+    private volatile String cloudPass = "";
+
+    public void setCloudServer(String host, int port, String secret, String user, String pass) {
+        this.cloudHost = (host != null) ? host.trim() : "";
+        if (port > 0) this.cloudPort = port;
+        if (secret != null && !secret.trim().isEmpty()) this.cloudSecret = secret.trim();
+        this.cloudUser = (user != null) ? user.trim() : "";
+        this.cloudPass = (pass != null) ? pass.trim() : "";
+    }
+
+    public String getCloudHost() { return cloudHost; }
+    public int getCloudPort() { return cloudPort; }
+    public String getCloudSecret() { return cloudSecret; }
+
     public void setFallbackHost(String host) {
         if (host != null) {
             this.fallbackHost = host.trim();
@@ -178,6 +197,14 @@ public class StatsClient {
     }
 
     public String getCurrentActiveHost() {
+        if (currentLink == LinkType.CLOUD) {
+            if (cloudHost != null && !cloudHost.isEmpty()) {
+                return cloudHost + ":" + cloudPort;
+            }
+            if (customHost != null && !customHost.isEmpty()) {
+                return customHost + ":" + customPort;
+            }
+        }
         if (customHost != null && !customHost.isEmpty()) {
             return customHost + ":" + customPort;
         }
@@ -406,7 +433,35 @@ public class StatsClient {
                         } catch (Exception ignored) {}
                     }
 
-                    // 3. 如果通过 Wi-Fi 成功，但累计 USB 失败，则每 5 次轮询静默探活一次 USB 是否恢复
+                    // 3. 🌟 关键：云端中继兜底通道 (当 USB 与局域网离线/用户在室外时，自动无缝切入云端)
+                    if (stats == null && cloudHost != null && !cloudHost.isEmpty()) {
+                        try {
+                            String sec = (cloudSecret != null) ? cloudSecret.trim() : "";
+                            while (sec.endsWith("/")) sec = sec.substring(0, sec.length() - 1);
+                            String authHeader = null;
+                            if (cloudUser != null && !cloudUser.isEmpty() && cloudPass != null && !cloudPass.isEmpty()) {
+                                String auth = cloudUser + ":" + cloudPass;
+                                authHeader = "Basic " + Base64.encodeToString(auth.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+                            }
+
+                            // 策略 A：直接请求 /api/stats (经 server.py 校验放行)
+                            String urlA = "http://" + cloudHost + ":" + cloudPort + "/api/stats";
+                            stats = fetchFromUrl(urlA, authHeader, 2500);
+
+                            // 策略 B：若策略 A 未果，尝试带安全前缀
+                            if (stats == null && !sec.isEmpty()) {
+                                String urlB = "http://" + cloudHost + ":" + cloudPort + sec + "/api/stats";
+                                stats = fetchFromUrl(urlB, authHeader, 2500);
+                            }
+
+                            if (stats != null) {
+                                activeLink = LinkType.CLOUD;
+                                activeHost = cloudHost + ":" + cloudPort;
+                            }
+                        } catch (Exception ignored) {}
+                    }
+
+                    // 4. 如果通过 Wi-Fi 成功，但累计 USB 失败，则每 5 次轮询静默探活一次 USB 是否恢复
                     if (stats != null && activeLink == LinkType.WIFI && (customHost == null || customHost.isEmpty())) {
                         consecutiveUsbFails++;
                         if (consecutiveUsbFails >= 5) {
