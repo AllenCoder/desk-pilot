@@ -1158,7 +1158,7 @@
                     android:id="@+id/tv_footer_version"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="DESKPILOT v1.3.5 · CLOUD READY"
+                    android:text="DESKPILOT v1.3.6 · CLOUD READY"
                     android:textColor="#323d47"
                     android:textSize="8sp"
                     android:gravity="center"

@@ -27,6 +27,7 @@ import android.view.animation.Animation;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -2565,6 +2566,7 @@ public class MainActivity extends Activity {
         tvSubtitle.setPadding(0, 0, 0, 15);
         mainLayout.addView(tvSubtitle);
 
+        final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         final AlertDialog[] dialogHolder = new AlertDialog[1];
 
         for (final AlphaPiClient.WifiApItem ap : cachedWifiAps) {
@@ -2593,18 +2595,39 @@ public class MainActivity extends Activity {
             LinearLayout textLayout = new LinearLayout(this);
             textLayout.setOrientation(LinearLayout.VERTICAL);
 
+            boolean hasSavedPwd = sp.contains("wifi_vault_" + ap.ssid) && !sp.getString("wifi_vault_" + ap.ssid, "").isEmpty();
+
+            LinearLayout titleLayout = new LinearLayout(this);
+            titleLayout.setOrientation(LinearLayout.HORIZONTAL);
+
             TextView tvSsid = new TextView(this);
             tvSsid.setText(ap.ssid);
             tvSsid.setTextColor(Color.parseColor("#38bdf8"));
             tvSsid.setTextSize(15);
             tvSsid.setTypeface(null, android.graphics.Typeface.BOLD);
+            titleLayout.addView(tvSsid);
+
+            if (hasSavedPwd) {
+                TextView tvBadge = new TextView(this);
+                tvBadge.setText(" 🔑 已存密码 ");
+                tvBadge.setTextColor(Color.parseColor("#eab308"));
+                tvBadge.setTextSize(10);
+                tvBadge.setBackgroundColor(Color.parseColor("#242008"));
+                tvBadge.setPadding(8, 2, 8, 2);
+                LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                badgeLp.setMargins(12, 0, 0, 0);
+                tvBadge.setLayoutParams(badgeLp);
+                titleLayout.addView(tvBadge);
+            }
 
             TextView tvDetail = new TextView(this);
-            tvDetail.setText(String.format(Locale.getDefault(), "信道 CH %d · %d dBm (2.4GHz 射频)", ap.channel, ap.rssi));
-            tvDetail.setTextColor(Color.parseColor("#64748b"));
+            String detailSuffix = hasSavedPwd ? " · ⚡ 免输密码" : "";
+            tvDetail.setText(String.format(Locale.getDefault(), "信道 CH %d · %d dBm (2.4GHz 射频)%s", ap.channel, ap.rssi, detailSuffix));
+            tvDetail.setTextColor(hasSavedPwd ? Color.parseColor("#a1a1aa") : Color.parseColor("#64748b"));
             tvDetail.setTextSize(11);
 
-            textLayout.addView(tvSsid);
+            textLayout.addView(titleLayout);
             textLayout.addView(tvDetail);
 
             // 连接操作标签
@@ -2688,8 +2711,9 @@ public class MainActivity extends Activity {
 
     private void showWifiConnectDialog(final String prefillSsid) {
         closeDrawers();
+        final SharedPreferences sp = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-        boolean hasSelected = (prefillSsid != null && !prefillSsid.isEmpty());
+        final boolean hasSelected = (prefillSsid != null && !prefillSsid.isEmpty());
         builder.setTitle(hasSelected ? ("📶 连接 Wi-Fi: " + prefillSsid) : "📶 ESP32-C3 Wi-Fi 路由器联网配置");
 
         LinearLayout layout = new LinearLayout(this);
@@ -2797,6 +2821,89 @@ public class MainActivity extends Activity {
         pwdContainer.addView(btnEye, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         layout.addView(pwdContainer);
 
+        // 密码金库提示 & 清除按钮容器
+        final TextView tvVaultHint = new TextView(this);
+        tvVaultHint.setTextSize(11);
+        tvVaultHint.setPadding(0, 8, 0, 4);
+
+        final LinearLayout forgetContainer = new LinearLayout(this);
+        forgetContainer.setOrientation(LinearLayout.HORIZONTAL);
+        forgetContainer.setPadding(0, 4, 0, 8);
+
+        final Button btnForget = new Button(this);
+        btnForget.setText("🗑️ 清除此网络已存密码");
+        btnForget.setTextSize(11);
+        btnForget.setTextColor(Color.parseColor("#ef4444"));
+        btnForget.setBackgroundColor(Color.parseColor("#2a1215"));
+        btnForget.setPadding(20, 8, 20, 8);
+        forgetContainer.addView(btnForget);
+
+        // 自动填入已存密码
+        String initSsid = hasSelected ? prefillSsid : "";
+        String savedPwd = (!initSsid.isEmpty()) ? sp.getString("wifi_vault_" + initSsid, "") : "";
+        if (!savedPwd.isEmpty()) {
+            etPass.setText(savedPwd);
+            tvVaultHint.setText("🔒 已自动填入已存密码 (可点击 👁️ 核对)");
+            tvVaultHint.setTextColor(Color.parseColor("#00f59b"));
+            tvVaultHint.setVisibility(View.VISIBLE);
+            forgetContainer.setVisibility(View.VISIBLE);
+        } else {
+            tvVaultHint.setVisibility(View.GONE);
+            forgetContainer.setVisibility(View.GONE);
+        }
+
+        btnForget.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String curSsid = etSsid.getText().toString().trim();
+                if (!curSsid.isEmpty()) {
+                    sp.edit().remove("wifi_vault_" + curSsid).apply();
+                    etPass.setText("");
+                    tvVaultHint.setText("已清除本地保存的 Wi-Fi 密码");
+                    tvVaultHint.setTextColor(Color.parseColor("#f87171"));
+                    tvVaultHint.setVisibility(View.VISIBLE);
+                    forgetContainer.setVisibility(View.GONE);
+                    Toast.makeText(MainActivity.this, "已清除 " + curSsid + " 的本地密码", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        layout.addView(tvVaultHint);
+        layout.addView(forgetContainer);
+
+        // 记住密码复选框
+        final CheckBox cbRemember = new CheckBox(this);
+        cbRemember.setText("记住此 Wi-Fi 密码 (保存在本地金库，下次自动填入)");
+        cbRemember.setTextColor(Color.parseColor("#94a3b8"));
+        cbRemember.setTextSize(11);
+        cbRemember.setChecked(true);
+        cbRemember.setPadding(0, 6, 0, 6);
+        layout.addView(cbRemember);
+
+        // 手动输入 SSID 时动态匹配金库
+        if (!hasSelected) {
+            etSsid.addTextChangedListener(new android.text.TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override
+                public void onTextChanged(CharSequence s, int start, int before, int count) {}
+                @Override
+                public void afterTextChanged(android.text.Editable s) {
+                    String cur = s.toString().trim();
+                    String matchedPwd = (!cur.isEmpty()) ? sp.getString("wifi_vault_" + cur, "") : "";
+                    if (!matchedPwd.isEmpty()) {
+                        if (etPass.getText().toString().isEmpty()) {
+                            etPass.setText(matchedPwd);
+                            tvVaultHint.setText("🔒 已自动匹配已存密码 (可点击 👁️ 核对)");
+                            tvVaultHint.setTextColor(Color.parseColor("#00f59b"));
+                            tvVaultHint.setVisibility(View.VISIBLE);
+                            forgetContainer.setVisibility(View.VISIBLE);
+                        }
+                    }
+                }
+            });
+        }
+
         // 提示当前数据将推送至哪个上位机
         String targetHost = (alphaPiClient != null) ? alphaPiClient.getHost() : "127.0.0.1";
         TextView tvTargetInfo = new TextView(this);
@@ -2819,6 +2926,15 @@ public class MainActivity extends Activity {
                     Toast.makeText(MainActivity.this, "请输入目标 Wi-Fi SSID", Toast.LENGTH_SHORT).show();
                     return;
                 }
+
+                if (cbRemember.isChecked()) {
+                    if (!pwd.isEmpty()) {
+                        sp.edit().putString("wifi_vault_" + ssid, pwd).apply();
+                    }
+                } else {
+                    sp.edit().remove("wifi_vault_" + ssid).apply();
+                }
+
                 if (alphaPiClient != null) {
                     String host = alphaPiClient.getHost();
                     alphaPiClient.sendWifiConnect(ssid, pwd, host);
