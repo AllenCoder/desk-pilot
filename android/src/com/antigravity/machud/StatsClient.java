@@ -27,6 +27,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.util.Base64;
+import java.nio.charset.StandardCharsets;
+
 public class StatsClient {
     private static final String TAG = "StatsClient";
 
@@ -116,10 +119,12 @@ public class StatsClient {
     private volatile LinkType currentLink = LinkType.USB;
     private volatile boolean isScanningSubnet = false;
 
-    // 自定义/云端主机配置 (支持 Google 云服务器与自定义端口路径)
+    // 自定义/云端主机配置 (支持 Google 云服务器与自定义端口路径及 Basic 认证)
     private volatile String customHost = "";
     private volatile int customPort = 9527;
     private volatile String customPath = "/api/stats";
+    private volatile String customUser = "";
+    private volatile String customPass = "";
 
     public StatsClient(String fallbackIp, Listener listener) {
         if (fallbackIp != null && !fallbackIp.isEmpty()) {
@@ -129,11 +134,17 @@ public class StatsClient {
     }
 
     public void setCustomServer(String host, int port, String path) {
+        setCustomServer(host, port, path, "", "");
+    }
+
+    public void setCustomServer(String host, int port, String path, String user, String pass) {
         this.customHost = (host != null) ? host.trim() : "";
         if (port > 0) this.customPort = port;
         if (path != null && !path.trim().isEmpty()) {
             this.customPath = path.trim();
         }
+        this.customUser = (user != null) ? user.trim() : "";
+        this.customPass = (pass != null) ? pass.trim() : "";
     }
 
     public String getCustomHost() {
@@ -146,6 +157,14 @@ public class StatsClient {
 
     public String getCustomPath() {
         return customPath;
+    }
+
+    public String getCustomUser() {
+        return customUser;
+    }
+
+    public String getCustomPass() {
+        return customPass;
     }
 
     public void setFallbackHost(String host) {
@@ -352,8 +371,14 @@ public class StatsClient {
                                 String path = customPath.startsWith("/") ? customPath : ("/" + customPath);
                                 urlStr = "http://" + customHost + ":" + customPort + path;
                             }
-                            stats = fetchFromUrl(urlStr, null, 2000);
-                            activeLink = LinkType.WIFI;
+                            String authHeader = null;
+                            if (customUser != null && !customUser.isEmpty() && customPass != null && !customPass.isEmpty()) {
+                                String auth = customUser + ":" + customPass;
+                                authHeader = "Basic " + Base64.encodeToString(auth.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+                            }
+                            stats = fetchFromUrl(urlStr, authHeader, 2500);
+                            boolean isCloud = !customHost.equals("127.0.0.1") && !customHost.startsWith("192.168.") && !customHost.startsWith("10.") && !customHost.startsWith("172.");
+                            activeLink = isCloud ? LinkType.CLOUD : LinkType.WIFI;
                             activeHost = customHost;
                         } catch (Exception ignored) {}
                     }

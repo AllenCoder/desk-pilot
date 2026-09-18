@@ -42,7 +42,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.List;
 
@@ -89,6 +91,7 @@ public class MainActivity extends Activity {
     private View btnSoundDu, btnSoundAlert, btnSoundCoin, btnSoundStop;
     private View btnWifiScan;
     private AlphaPiClient alphaPiClient;
+    private List<AlphaPiClient.WifiApItem> cachedWifiAps = new ArrayList<>();
     private String currentLedMode = "rainbow";
     private int currentLedColor = Color.parseColor("#00f59b");
     private float currentLedBrightness = 0.5f;
@@ -288,8 +291,26 @@ public class MainActivity extends Activity {
         String customHost = sp.getString("custom_host", "");
         int customPort = sp.getInt("custom_port", 9527);
         String customPath = sp.getString("custom_path", "/api/stats");
+        String customUser = sp.getString("custom_user", "");
+        String customPass = sp.getString("custom_pass", "");
+
+        // 🌟 智能自动联动：若未单独配置 Screen 1 自定义主机，但配置了 AlphaPi 云端上位机地址，则自动同步复用云端地址与鉴权
+        if (customHost.isEmpty()) {
+            String mcuHost = sp.getString("mcu_host", "");
+            if (!mcuHost.isEmpty()) {
+                customHost = mcuHost;
+                customPort = sp.getInt("mcu_port", 8765);
+                String secret = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
+                if (secret == null) secret = "";
+                while (secret.endsWith("/")) secret = secret.substring(0, secret.length() - 1);
+                customPath = secret + "/api/stats";
+                customUser = sp.getString("mcu_user", "");
+                customPass = sp.getString("mcu_pass", "");
+            }
+        }
+
         if (!customHost.isEmpty()) {
-            statsClient.setCustomServer(customHost, customPort, customPath);
+            statsClient.setCustomServer(customHost, customPort, customPath, customUser, customPass);
         }
         statsClient.start();
 
@@ -759,6 +780,7 @@ public class MainActivity extends Activity {
                         if (tvWifiResults != null) {
                             tvWifiResults.setText("📡 正在向 ESP32-C3 发送射频扫描指令，请稍候约 2 秒...");
                         }
+                        Toast.makeText(MainActivity.this, "📡 正在扫描周边全信道 2.4G Wi-Fi...", Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -767,7 +789,11 @@ public class MainActivity extends Activity {
             tvWifiResults.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    showWifiConnectDialog();
+                    if (cachedWifiAps != null && !cachedWifiAps.isEmpty()) {
+                        showWifiApPickerDialog();
+                    } else {
+                        showWifiConnectDialog(null);
+                    }
                 }
             });
         }
@@ -1402,6 +1428,13 @@ public class MainActivity extends Activity {
         presetsLayout.addView(btnClear, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
         layout.addView(presetsLayout);
 
+        Button btnSyncAlphaPi = new Button(this);
+        btnSyncAlphaPi.setText("☁️ 沿用 AlphaPi 上位机云端地址与鉴权");
+        btnSyncAlphaPi.setTextSize(11);
+        btnSyncAlphaPi.setTextColor(Color.parseColor("#38bdf8"));
+        btnSyncAlphaPi.setBackgroundColor(Color.parseColor("#15233a"));
+        layout.addView(btnSyncAlphaPi);
+
         TextView tvHostLabel = new TextView(this);
         tvHostLabel.setText("主机地址 / IP / 域名 (可输入)：");
         tvHostLabel.setTextColor(Color.parseColor("#8b949e"));
@@ -1414,27 +1447,74 @@ public class MainActivity extends Activity {
         layout.addView(etHost);
 
         TextView tvPortLabel = new TextView(this);
-        tvPortLabel.setText("端口号 Port (默认 9527)：");
+        tvPortLabel.setText("端口号 Port (默认 9527 / 云端 8000)：");
         tvPortLabel.setTextColor(Color.parseColor("#8b949e"));
         tvPortLabel.setTextSize(11);
         layout.addView(tvPortLabel);
 
-        etPort.setHint("端口号 (默认 9527)");
+        etPort.setHint("端口号 (默认 9527 / 云端 8000)");
         etPort.setText(String.valueOf(customPort > 0 ? customPort : 9527));
         etPort.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         styleCyberEditText(etPort);
         layout.addView(etPort);
 
         TextView tvPathLabel = new TextView(this);
-        tvPathLabel.setText("API 路径 (默认 /api/stats)：");
+        tvPathLabel.setText("API 路径 (默认 /api/stats，云端带私密前缀)：");
         tvPathLabel.setTextColor(Color.parseColor("#8b949e"));
         tvPathLabel.setTextSize(11);
         layout.addView(tvPathLabel);
 
-        etPath.setHint("如 /api/stats");
+        etPath.setHint("如 /api/stats 或 /ctrl-xxx/api/stats");
         etPath.setText(customPath.isEmpty() ? "/api/stats" : customPath);
         styleCyberEditText(etPath);
         layout.addView(etPath);
+
+        TextView tvUserLabel = new TextView(this);
+        tvUserLabel.setText("HTTP Basic 认证账号 (云端直连必填)：");
+        tvUserLabel.setTextColor(Color.parseColor("#8b949e"));
+        tvUserLabel.setTextSize(11);
+        layout.addView(tvUserLabel);
+
+        final EditText etUser = new EditText(this);
+        etUser.setHint("如 pilot_admin (内网直连留空)");
+        etUser.setText(sp.getString("custom_user", ""));
+        styleCyberEditText(etUser);
+        layout.addView(etUser);
+
+        TextView tvPassLabel = new TextView(this);
+        tvPassLabel.setText("HTTP Basic 认证密码 (云端直连必填)：");
+        tvPassLabel.setTextColor(Color.parseColor("#8b949e"));
+        tvPassLabel.setTextSize(11);
+        layout.addView(tvPassLabel);
+
+        final EditText etPass = new EditText(this);
+        etPass.setHint("如口令密码 (内网直连留空)");
+        etPass.setText(sp.getString("custom_pass", ""));
+        etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        styleCyberEditText(etPass);
+        layout.addView(etPass);
+
+        btnSyncAlphaPi.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String mHost = sp.getString("mcu_host", "");
+                int mPort = sp.getInt("mcu_port", 8765);
+                String mSec = sp.getString("mcu_secret", "/ctrl-ef691ada9ea6");
+                String mUser = sp.getString("mcu_user", "");
+                String mPass = sp.getString("mcu_pass", "");
+                if (!mHost.isEmpty()) {
+                    etHost.setText(mHost);
+                    etPort.setText(String.valueOf(mPort));
+                    while (mSec.endsWith("/")) mSec = mSec.substring(0, mSec.length() - 1);
+                    etPath.setText(mSec + "/api/stats");
+                    etUser.setText(mUser);
+                    etPass.setText(mPass);
+                    Toast.makeText(MainActivity.this, "已同步 AlphaPi 云端配置与鉴权！", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "上位机页面尚未保存云端地址", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
 
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
@@ -1447,6 +1527,8 @@ public class MainActivity extends Activity {
                 String hostInput = etHost.getText().toString().trim();
                 String portInput = etPort.getText().toString().trim();
                 String pathInput = etPath.getText().toString().trim();
+                String userInput = etUser.getText().toString().trim();
+                String passInput = etPass.getText().toString().trim();
                 int port = 9527;
                 try {
                     port = Integer.parseInt(portInput);
@@ -1457,11 +1539,13 @@ public class MainActivity extends Activity {
                     .putString("custom_host", hostInput)
                     .putInt("custom_port", port)
                     .putString("custom_path", pathInput)
+                    .putString("custom_user", userInput)
+                    .putString("custom_pass", passInput)
                     .putString(KEY_SAVED_MAC_IP, hostInput)
                     .apply();
 
                 if (statsClient != null) {
-                    statsClient.setCustomServer(hostInput, port, pathInput);
+                    statsClient.setCustomServer(hostInput, port, pathInput, userInput, passInput);
                     statsClient.setFallbackHost(hostInput);
                 }
                 if (audioStreamer != null && !hostInput.isEmpty()) {
@@ -2236,20 +2320,24 @@ public class MainActivity extends Activity {
 
             @Override
             public void onWifiScanResult(List<AlphaPiClient.WifiApItem> aps) {
+                cachedWifiAps = (aps != null) ? new ArrayList<>(aps) : new ArrayList<AlphaPiClient.WifiApItem>();
                 if (tvWifiResults != null) {
-                    if (aps.isEmpty()) {
-                        tvWifiResults.setText("⚠️ 未搜索到周边 Wi-Fi 信号");
+                    if (cachedWifiAps.isEmpty()) {
+                        tvWifiResults.setText("⚠️ 未搜索到周边 Wi-Fi 信号 (点击重试)");
                     } else {
                         StringBuilder sb = new StringBuilder();
-                        sb.append(String.format(Locale.getDefault(), "🎉 发现 %d 个无线网络 (2.4GHz 射频):\n\n", aps.size()));
-                        for (AlphaPiClient.WifiApItem ap : aps) {
+                        sb.append(String.format(Locale.getDefault(), "🎉 发现 %d 个无线网络 (点击直接选择连接):\n\n", cachedWifiAps.size()));
+                        for (AlphaPiClient.WifiApItem ap : cachedWifiAps) {
                             String bar = ap.rssi > -60 ? " ▂▃▄▅ (极佳)" : (ap.rssi > -75 ? " ▂▃▄_ (良好)" : " ▂___ (较弱)");
                             sb.append("📡 ").append(ap.ssid)
                               .append(" [信道 ").append(ap.channel).append("] ")
-                              .append(ap.rssi).append(" dBm").append(bar).append("\n");
+                              .append(ap.rssi).append(" dBm ").append(bar).append("\n");
                         }
                         tvWifiResults.setText(sb.toString());
                     }
+                }
+                if (cachedWifiAps != null && !cachedWifiAps.isEmpty()) {
+                    showWifiApPickerDialog();
                 }
             }
 
@@ -2449,10 +2537,153 @@ public class MainActivity extends Activity {
         builder.create().show();
     }
 
+    private void showWifiApPickerDialog() {
+        closeDrawers();
+        if (cachedWifiAps == null || cachedWifiAps.isEmpty()) {
+            showWifiConnectDialog(null);
+            return;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+        builder.setTitle("📶 选择周边 Wi-Fi 无线网络");
+
+        LinearLayout mainLayout = new LinearLayout(this);
+        mainLayout.setOrientation(LinearLayout.VERTICAL);
+        mainLayout.setPadding(30, 20, 30, 10);
+
+        TextView tvSubtitle = new TextView(this);
+        tvSubtitle.setText(String.format(Locale.getDefault(), "发现 %d 个 2.4GHz 无线网络，点击即可一键锁定并连接：", cachedWifiAps.size()));
+        tvSubtitle.setTextColor(Color.parseColor("#94a3b8"));
+        tvSubtitle.setTextSize(12);
+        tvSubtitle.setPadding(0, 0, 0, 15);
+        mainLayout.addView(tvSubtitle);
+
+        final AlertDialog[] dialogHolder = new AlertDialog[1];
+
+        for (final AlphaPiClient.WifiApItem ap : cachedWifiAps) {
+            LinearLayout itemLayout = new LinearLayout(this);
+            itemLayout.setOrientation(LinearLayout.HORIZONTAL);
+            itemLayout.setPadding(25, 20, 25, 20);
+            itemLayout.setBackgroundColor(Color.parseColor("#0f172a"));
+            itemLayout.setClickable(true);
+            itemLayout.setFocusable(true);
+
+            LinearLayout.LayoutParams itemLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            itemLp.setMargins(0, 0, 0, 12);
+            itemLayout.setLayoutParams(itemLp);
+
+            // 信号强度图标与等级
+            TextView tvIcon = new TextView(this);
+            String bar = ap.rssi > -60 ? "▂▃▄▅" : (ap.rssi > -75 ? "▂▃▄_" : "▂___");
+            int iconColor = ap.rssi > -60 ? Color.parseColor("#00f59b") : (ap.rssi > -75 ? Color.parseColor("#eab308") : Color.parseColor("#f97316"));
+            tvIcon.setText("📶 " + bar);
+            tvIcon.setTextColor(iconColor);
+            tvIcon.setTextSize(13);
+            tvIcon.setPadding(0, 0, 20, 0);
+
+            // SSID 与信道信息
+            LinearLayout textLayout = new LinearLayout(this);
+            textLayout.setOrientation(LinearLayout.VERTICAL);
+
+            TextView tvSsid = new TextView(this);
+            tvSsid.setText(ap.ssid);
+            tvSsid.setTextColor(Color.parseColor("#38bdf8"));
+            tvSsid.setTextSize(15);
+            tvSsid.setTypeface(null, android.graphics.Typeface.BOLD);
+
+            TextView tvDetail = new TextView(this);
+            tvDetail.setText(String.format(Locale.getDefault(), "信道 CH %d · %d dBm (2.4GHz 射频)", ap.channel, ap.rssi));
+            tvDetail.setTextColor(Color.parseColor("#64748b"));
+            tvDetail.setTextSize(11);
+
+            textLayout.addView(tvSsid);
+            textLayout.addView(tvDetail);
+
+            // 连接操作标签
+            TextView tvAction = new TextView(this);
+            tvAction.setText("⚡ 连接");
+            tvAction.setTextColor(Color.parseColor("#00f59b"));
+            tvAction.setTextSize(13);
+            tvAction.setPadding(20, 0, 0, 0);
+
+            itemLayout.addView(tvIcon);
+            itemLayout.addView(textLayout, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+            itemLayout.addView(tvAction);
+
+            itemLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (dialogHolder[0] != null) {
+                        dialogHolder[0].dismiss();
+                    }
+                    showWifiConnectDialog(ap.ssid);
+                }
+            });
+
+            mainLayout.addView(itemLayout);
+        }
+
+        // 底部快捷操作条
+        LinearLayout footerLayout = new LinearLayout(this);
+        footerLayout.setOrientation(LinearLayout.HORIZONTAL);
+        footerLayout.setPadding(0, 15, 0, 10);
+
+        Button btnManual = new Button(this);
+        btnManual.setText("➕ 手动输入隐藏 SSID");
+        btnManual.setTextSize(11);
+        btnManual.setTextColor(Color.parseColor("#94a3b8"));
+        btnManual.setBackgroundColor(Color.parseColor("#15233a"));
+        btnManual.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (dialogHolder[0] != null) {
+                    dialogHolder[0].dismiss();
+                }
+                showWifiConnectDialog("");
+            }
+        });
+
+        Button btnRescan = new Button(this);
+        btnRescan.setText("🔄 重新全信道扫描");
+        btnRescan.setTextSize(11);
+        btnRescan.setTextColor(Color.parseColor("#38bdf8"));
+        btnRescan.setBackgroundColor(Color.parseColor("#15233a"));
+        btnRescan.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (dialogHolder[0] != null) {
+                    dialogHolder[0].dismiss();
+                }
+                if (alphaPiClient != null) {
+                    Toast.makeText(MainActivity.this, "正在重新扫描周边 Wi-Fi 信号...", Toast.LENGTH_SHORT).show();
+                    alphaPiClient.scanWifi();
+                }
+            }
+        });
+
+        footerLayout.addView(btnManual, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        footerLayout.addView(btnRescan, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        mainLayout.addView(footerLayout);
+
+        ScrollView sv = new ScrollView(this);
+        sv.addView(mainLayout);
+        builder.setView(sv);
+        builder.setNegativeButton("取消", null);
+
+        dialogHolder[0] = builder.create();
+        dialogHolder[0].show();
+    }
+
     private void showWifiConnectDialog() {
+        showWifiConnectDialog(null);
+    }
+
+    private void showWifiConnectDialog(final String prefillSsid) {
         closeDrawers();
         AlertDialog.Builder builder = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
-        builder.setTitle("📶 ESP32-C3 Wi-Fi 路由器联网配置");
+        boolean hasSelected = (prefillSsid != null && !prefillSsid.isEmpty());
+        builder.setTitle(hasSelected ? ("📶 连接 Wi-Fi: " + prefillSsid) : "📶 ESP32-C3 Wi-Fi 路由器联网配置");
 
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -2464,22 +2695,115 @@ public class MainActivity extends Activity {
         tvInfo.setTextSize(12);
         layout.addView(tvInfo);
 
-        final EditText etSsid = new EditText(this);
-        etSsid.setHint("Wi-Fi 名称 (SSID)");
-        styleCyberEditText(etSsid);
-        layout.addView(etSsid);
+        final EditText etSsid;
+        if (hasSelected) {
+            // 卡片式展示已选 SSID 与更换按钮
+            LinearLayout selectedLayout = new LinearLayout(this);
+            selectedLayout.setOrientation(LinearLayout.HORIZONTAL);
+            selectedLayout.setPadding(20, 15, 20, 15);
+            selectedLayout.setBackgroundColor(Color.parseColor("#15233a"));
+            LinearLayout.LayoutParams selLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            selLp.setMargins(0, 15, 0, 15);
+            selectedLayout.setLayoutParams(selLp);
+
+            TextView tvSelected = new TextView(this);
+            tvSelected.setText("📡 已选网络: " + prefillSsid + " (已锁定)");
+            tvSelected.setTextColor(Color.parseColor("#00f59b"));
+            tvSelected.setTextSize(14);
+            tvSelected.setTypeface(null, android.graphics.Typeface.BOLD);
+
+            Button btnSwitch = new Button(this);
+            btnSwitch.setText("🔄 更换");
+            btnSwitch.setTextSize(11);
+            btnSwitch.setTextColor(Color.parseColor("#38bdf8"));
+            btnSwitch.setBackgroundColor(Color.parseColor("#1e293b"));
+            btnSwitch.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showWifiApPickerDialog();
+                }
+            });
+
+            selectedLayout.addView(tvSelected, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+            selectedLayout.addView(btnSwitch);
+            layout.addView(selectedLayout);
+
+            etSsid = new EditText(this);
+            etSsid.setText(prefillSsid);
+            etSsid.setVisibility(View.GONE);
+            layout.addView(etSsid);
+        } else {
+            TextView tvSsidLabel = new TextView(this);
+            tvSsidLabel.setText("Wi-Fi 名称 (SSID)：");
+            tvSsidLabel.setTextColor(Color.parseColor("#8b949e"));
+            tvSsidLabel.setTextSize(11);
+            tvSsidLabel.setPadding(0, 10, 0, 0);
+            layout.addView(tvSsidLabel);
+
+            etSsid = new EditText(this);
+            etSsid.setHint("Wi-Fi 名称 (SSID)");
+            styleCyberEditText(etSsid);
+            layout.addView(etSsid);
+        }
+
+        TextView tvPassLabel = new TextView(this);
+        tvPassLabel.setText("Wi-Fi 密码 (无密码请留空)：");
+        tvPassLabel.setTextColor(Color.parseColor("#8b949e"));
+        tvPassLabel.setTextSize(11);
+        tvPassLabel.setPadding(0, 10, 0, 0);
+        layout.addView(tvPassLabel);
+
+        // 密码输入框横向容器 + 密码可见性眼球切换按钮
+        LinearLayout pwdContainer = new LinearLayout(this);
+        pwdContainer.setOrientation(LinearLayout.HORIZONTAL);
+        pwdContainer.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
         final EditText etPass = new EditText(this);
         etPass.setHint("Wi-Fi 密码 (无密码留空)");
         etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
         styleCyberEditText(etPass);
-        layout.addView(etPass);
+
+        final Button btnEye = new Button(this);
+        btnEye.setText("👁️");
+        btnEye.setTextSize(14);
+        btnEye.setTextColor(Color.parseColor("#38bdf8"));
+        btnEye.setBackgroundColor(Color.parseColor("#15233a"));
+        final boolean[] isPasswordVisible = new boolean[]{false};
+        btnEye.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isPasswordVisible[0] = !isPasswordVisible[0];
+                if (isPasswordVisible[0]) {
+                    etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                    btnEye.setText("🙈");
+                } else {
+                    etPass.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    btnEye.setText("👁️");
+                }
+                etPass.setSelection(etPass.length());
+            }
+        });
+
+        pwdContainer.addView(etPass, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        pwdContainer.addView(btnEye, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        layout.addView(pwdContainer);
+
+        // 提示当前数据将推送至哪个上位机
+        String targetHost = (alphaPiClient != null) ? alphaPiClient.getHost() : "127.0.0.1";
+        TextView tvTargetInfo = new TextView(this);
+        tvTargetInfo.setText("📡 配网成功后，板卡将向上位机 " + targetHost + ":9529 上传 30 FPS 遥测数据");
+        tvTargetInfo.setTextColor(Color.parseColor("#64748b"));
+        tvTargetInfo.setTextSize(10);
+        tvTargetInfo.setPadding(0, 10, 0, 10);
+        layout.addView(tvTargetInfo);
 
         ScrollView sv = new ScrollView(this);
         sv.addView(layout);
         builder.setView(sv);
 
-        builder.setPositiveButton("连接", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton("🚀 立即连接", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 String ssid = etSsid.getText().toString().trim();
@@ -2489,14 +2813,14 @@ public class MainActivity extends Activity {
                     return;
                 }
                 if (alphaPiClient != null) {
-                    String targetHost = alphaPiClient.getHost();
-                    alphaPiClient.sendWifiConnect(ssid, pwd, targetHost);
-                    Toast.makeText(MainActivity.this, "已下发连接 Wi-Fi: " + ssid + "，请稍候...", Toast.LENGTH_SHORT).show();
+                    String host = alphaPiClient.getHost();
+                    alphaPiClient.sendWifiConnect(ssid, pwd, host);
+                    Toast.makeText(MainActivity.this, "已下发连接 Wi-Fi: " + ssid + "，正在联网握手...", Toast.LENGTH_SHORT).show();
                 }
             }
         });
 
-        builder.setNeutralButton("断开Wi-Fi", new DialogInterface.OnClickListener() {
+        builder.setNeutralButton("🔌 断开网络", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 if (alphaPiClient != null) {
