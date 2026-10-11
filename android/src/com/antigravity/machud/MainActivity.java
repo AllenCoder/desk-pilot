@@ -2371,8 +2371,64 @@ public class MainActivity extends Activity {
                     tvIotConnStatus.setTextColor(online ? Color.parseColor("#00f59b") : Color.parseColor("#ef4444"));
                 }
             }
+
+            @Override
+            public void onPttStatus(String status) {
+                if (tvIotConnStatus != null) {
+                    if ("talking".equals(status)) {
+                        tvIotConnStatus.setText("🔴 单片机对讲讲话中...");
+                        tvIotConnStatus.setTextColor(Color.parseColor("#ef4444"));
+                    } else if ("uploading".equals(status)) {
+                        tvIotConnStatus.setText("📶 正在接收单片机语音...");
+                        tvIotConnStatus.setTextColor(Color.parseColor("#eab308"));
+                    } else {
+                        tvIotConnStatus.setText("● 对讲信道空闲");
+                        tvIotConnStatus.setTextColor(Color.parseColor("#00f59b"));
+                    }
+                }
+            }
+
+            @Override
+            public void onIncomingVoice(String wavUrl) {
+                if (tvIotConnStatus != null) {
+                    tvIotConnStatus.setText("🔊 正在外放单片机对讲语音...");
+                    tvIotConnStatus.setTextColor(Color.parseColor("#38bdf8"));
+                }
+                playIncomingVoiceAudio();
+            }
         });
         alphaPiClient.start();
+    }
+
+    private void playIncomingVoiceAudio() {
+        if (alphaPiClient == null) return;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String base = "http://" + alphaPiClient.getHost() + ":" + alphaPiClient.getPort() + alphaPiClient.getSecretPath();
+                    String fullUrl = base + "/api/ptt/voice_audio?t=" + System.currentTimeMillis();
+                    final android.media.MediaPlayer mp = new android.media.MediaPlayer();
+                    mp.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
+                    mp.setDataSource(fullUrl);
+                    mp.setOnPreparedListener(new android.media.MediaPlayer.OnPreparedListener() {
+                        @Override
+                        public void onPrepared(android.media.MediaPlayer player) {
+                            player.start();
+                        }
+                    });
+                    mp.setOnCompletionListener(new android.media.MediaPlayer.OnCompletionListener() {
+                        @Override
+                        public void onCompletion(android.media.MediaPlayer player) {
+                            player.release();
+                        }
+                    });
+                    mp.prepareAsync();
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Voice playback error: " + e.getMessage());
+                }
+            }
+        }).start();
     }
 
     private void showIotSettingsDialog() {

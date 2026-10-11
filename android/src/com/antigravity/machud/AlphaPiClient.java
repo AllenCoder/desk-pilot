@@ -32,6 +32,8 @@ public class AlphaPiClient {
         void onSoundEvent(String soundFile);
         void onWifiStatus(boolean connected, String ssid, String ip, String gw);
         void onConnectionStatus(boolean online, String message);
+        void onPttStatus(String status);
+        void onIncomingVoice(String wavUrl);
     }
 
     public static class WifiApItem {
@@ -230,6 +232,30 @@ public class AlphaPiClient {
                 return;
             }
 
+            // 检查对讲机状态事件
+            if (obj.has("type") && "ptt_status".equals(obj.optString("type"))) {
+                final String pttStatus = obj.optString("status", "idle");
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (listener != null) listener.onPttStatus(pttStatus);
+                    }
+                });
+                return;
+            }
+
+            // 检查收到新语音事件
+            if (obj.has("type") && "ptt_incoming_voice".equals(obj.optString("type"))) {
+                final String voiceUrl = obj.optString("url", "");
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (listener != null) listener.onIncomingVoice(voiceUrl);
+                    }
+                });
+                return;
+            }
+
             // 检查声音事件
             if (obj.has("type") && "sound".equals(obj.optString("type"))) {
                 final String soundFile = obj.optString("file", "");
@@ -325,6 +351,16 @@ public class AlphaPiClient {
 
     public void sendWifiDisconnect() {
         postJson("/api/wifi/disconnect", "{}");
+    }
+
+    public void sendCallBeep() {
+        postJson("/api/ptt/call_beep", "{}");
+    }
+
+    public void sendPttVoice(byte[] pcmData) {
+        if (pcmData == null || pcmData.length == 0) return;
+        String b64 = Base64.encodeToString(pcmData, Base64.NO_WRAP);
+        postJson("/api/ptt/broadcast", "{\"pcm_b64\":\"" + b64 + "\"}");
     }
 
     private void postJson(final String subPath, final String jsonBody) {
